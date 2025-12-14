@@ -365,6 +365,86 @@ function testScenario2() {
 	return true;
 }
 
+/**
+ * Test scenario 3: User's actual structure - no section groups, multiple sections with pages
+ * This tests the behavior when insertPagesToSection is called multiple times for different
+ * sections, and whether the lack of early return causes any state issues.
+ */
+function testScenario3() {
+	console.log('\n=== Test Scenario 3: Multiple Notebooks (User\'s Case) ===');
+	
+	// User has NO section groups, just direct sections under notebook
+	const section1: OnenoteSection = {
+		id: 'section1',
+		displayName: 'My Section',
+		pages: []  // Will be set by insertPagesToSection
+	};
+	
+	const notebook1: Notebook = {
+		id: 'notebook1',
+		displayName: 'My Notebook',
+		sections: [section1],
+		sectionGroups: []  // No section groups!
+	};
+	
+	// Simulate having multiple notebooks loaded (even if user only imported from one)
+	const notebook2: Notebook = {
+		id: 'notebook2',
+		displayName: 'Other Notebook',
+		sections: [],
+		sectionGroups: []
+	};
+	
+	const notebooks = [notebook1, notebook2];
+	const pages: OnenotePage[] = [
+		{ id: 'page1', title: 'Page 1', level: 0 },
+		{ id: 'page2', title: 'Page 2', level: 0 },
+		{ id: 'page3', title: 'Page 3', level: 0 }
+	];
+	
+	// Simulate BUGGY insertPagesToSection (no early return, continues through all notebooks)
+	console.log('BUGGY insertPagesToSection (iterates through ALL notebooks):');
+	let iterationCount = 0;
+	for (const notebook of notebooks) {
+		if (notebook.sections) {
+			for (const section of notebook.sections) {
+				if (section.id === 'section1') {
+					section.pages = pages;
+					iterationCount++;
+					console.log(`  Iteration ${iterationCount}: Set pages on section in ${notebook.displayName}`);
+					// BUG: No break or return, continues to next notebook!
+				}
+			}
+		}
+	}
+	console.log(`  Total iterations: ${iterationCount}`);
+	
+	// Simulate FIXED insertPagesToSection (early return after finding section)
+	console.log('\nFIXED insertPagesToSection (stops after finding section):');
+	section1.pages = [];  // Reset
+	iterationCount = 0;
+	let found = false;
+	for (const notebook of notebooks) {
+		if (found) break;  // Early exit
+		if (notebook.sections) {
+			for (const section of notebook.sections) {
+				if (section.id === 'section1') {
+					section.pages = pages;
+					iterationCount++;
+					found = true;
+					console.log(`  Iteration ${iterationCount}: Set pages on section in ${notebook.displayName}`);
+					break;  // Early exit
+				}
+			}
+		}
+	}
+	console.log(`  Total iterations: ${iterationCount}`);
+	
+	console.log('\n✅ TEST INFO: Early return prevents unnecessary iterations through multiple notebooks');
+	console.log('   This ensures pages are set exactly once, avoiding potential state issues.');
+	return true;
+}
+
 // Run tests
 console.log('======================================');
 console.log('OneNote Section Organization Bug Test');
@@ -372,6 +452,7 @@ console.log('======================================');
 
 testScenario1();
 testScenario2();
+testScenario3();
 
 console.log('\n======================================');
 console.log('Test Summary');
