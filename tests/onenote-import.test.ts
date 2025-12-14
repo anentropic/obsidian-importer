@@ -269,3 +269,42 @@ test('duplicate section IDs with missing display name can flatten pages to noteb
 		pB: 'OneNote/Notebook/Page B.md',
 	});
 });
+
+test('all sections present, multiple pages per section — reported spillover to root', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'OneNote';
+	importer.notebooks = [{
+		id: 'nb1',
+		displayName: 'Notebook',
+		sections: [
+			{ id: 's1', displayName: 'Section One' },
+			{ id: 's2', displayName: 'Section Two' },
+		],
+	}];
+	importer.pagesBySection = {
+		s1: [
+			{ id: 'p1a', title: 'Page 1A', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1a/content?page-id={p1a}' },
+			{ id: 'p1b', title: 'Page 1B', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1b/content?page-id={p1b}' },
+		],
+		s2: [
+			{ id: 'p2a', title: 'Page 2A', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2a/content?page-id={p2a}' },
+			{ id: 'p2b', title: 'Page 2B', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2b/content?page-id={p2b}' },
+		],
+	};
+	importer.selectedIds = ['s1', 's2'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	// Expected if spillover happens: only first page per section stays in its section, others hit root
+	assert.deepStrictEqual(importer.recordedPaths, {
+		p1a: 'OneNote/Notebook/Section One/Page 1A.md',
+		p1b: '/Page 1B.md',
+		p2a: 'OneNote/Notebook/Section Two/Page 2A.md',
+		p2b: '/Page 2B.md',
+	});
+});
