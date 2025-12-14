@@ -541,7 +541,11 @@ export class OneNoteImporter extends FormatImporter {
 		try {
 			const splitContent = this.convertFormat(content);
 			const outputFolder = await this.getOutputFolder();
-			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
+			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name);
+			
+			if (!outputPath) {
+				throw new Error(`Unable to determine output path for page "${page.title}" (ID: ${page.id}). The page may not be properly associated with its section.`);
+			}
 
 			let pageFolder: TFolder;
 			if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
@@ -778,7 +782,10 @@ export class OneNoteImporter extends FormatImporter {
 		// Recursively search in section groups
 		let returnPath: string | null = null;
 		for (const sectionGroup of sectionGroups) {
-			if (sectionGroup.id === entityID) returnPath = `${currentPath}/${sectionGroup.displayName}`;
+			if (sectionGroup.id === entityID) {
+				returnPath = `${currentPath}/${sectionGroup.displayName}`;
+				break;
+			}
 			else {
 				const foundPath = this.getEntityPath(entityID, `${currentPath}/${sectionGroup.displayName}`, sectionGroup);
 				if (foundPath) {
