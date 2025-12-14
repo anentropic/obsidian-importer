@@ -1,0 +1,220 @@
+import { strict as assert } from 'assert';
+import { test } from 'node:test';
+import * as Module from 'module';
+import type { OnenotePage, Notebook } from '@microsoft/microsoft-graph-types';
+
+const originalLoad = Module._load;
+let obsidianExports: any;
+let mainExports: any;
+Module._load = function (request: string, parent: NodeModule | null, isMain: boolean) {
+	if (request === '../main') {
+		if (!mainExports) {
+			mainExports = { ATTACHMENT_EXTS: [], AUTH_REDIRECT_URI: '', ImportContext: class { } };
+		}
+		return mainExports;
+	}
+	if (request === 'obsidian') {
+		if (!obsidianExports) {
+			class TFolder {
+				path: string;
+				name: string;
+				constructor(path: string = '') {
+					this.path = path;
+					this.name = path.split('/').pop() || '';
+				}
+			}
+			class Vault {
+				createdPaths = new Set<string>();
+				adapter = {
+					exists: async (path: string) => this.createdPaths.has(path),
+				};
+				async createFolder(path: string) {
+					this.createdPaths.add(path);
+					return new TFolder(path);
+				}
+				getAbstractFileByPath(path: string) {
+					return this.createdPaths.has(path) ? new TFolder(path) : null;
+				}
+				getAbstractFileByPathInsensitive(path: string) {
+					return this.getAbstractFileByPath(path);
+				}
+			}
+			obsidianExports = {
+				App: class { },
+				Vault,
+				TFolder,
+				Plugin: class { },
+				Modal: class {
+					contentEl = { createDiv: () => ({ createEl: () => ({ }), empty: () => { }, show: () => { }, hide: () => { } }) };
+				},
+				Notice: class { },
+				Setting: class {
+					settingEl = { show: () => { }, hide: () => { } };
+					contentEl: any = {};
+					setName() { return this; }
+					setDesc() { return this; }
+					addToggle() { return this; }
+					addButton() { return this; }
+					addText() { return this; }
+				},
+				htmlToMarkdown: () => '',
+				requestUrl: async () => ({}),
+				moment: (..._args: any[]) => ({ format: () => '', utc: () => ({ format: () => '' }) }),
+				normalizePath: (p: string) => p,
+				Platform: { isDesktopApp: false, isMacOS: false },
+			};
+		}
+		return obsidianExports;
+	}
+	if (request === 'zip') {
+		return {};
+	}
+	return originalLoad(request, parent, isMain);
+};
+
+// Import after stubbing dependencies
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { OneNoteImporter } = require('../src/formats/onenote');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const { TFolder } = require('obsidian');
+
+class TestPlugin {
+	data = { importers: { onenote: { previouslyImportedIDs: [] as string[] } } };
+	async loadData() {
+		return this.data;
+	}
+	async saveData(data: any) {
+		this.data = data;
+	}
+	registerAuthCallback() { }
+}
+
+class TestModal {
+	plugin = new TestPlugin();
+	contentEl = { createDiv: () => ({ createEl: () => ({ }), empty: () => { }, show: () => { }, hide: () => { } }) };
+	abortController = new AbortController();
+}
+
+class TestVault {
+	createdFolders = new Set<string>();
+	adapter = {
+		exists: async (path: string) => this.createdFolders.has(path),
+	};
+	async createFolder(path: string) {
+		this.createdFolders.add(path);
+		return new TFolder(path);
+	}
+	getAbstractFileByPath(path: string) {
+		return this.createdFolders.has(path) ? new TFolder(path) : null;
+	}
+	getAbstractFileByPathInsensitive(path: string) {
+		return this.getAbstractFileByPath(path);
+	}
+	fileManager = {
+		createNewMarkdownFile: async (_folder: any, _name: string) => ({ }),
+	};
+}
+
+class TestApp {
+	vault = new TestVault();
+	fileManager = this.vault.fileManager;
+}
+
+class TestContext {
+	status(_message: string) { }
+	reportProgress(_current: number, _total: number) { }
+	isCancelled() { return false; }
+	reportSkipped(_title: string, _reason: string) { }
+	reportFailed(_title: string, _error: any) { }
+	reportNoteSuccess(_title: string) { }
+}
+
+class TestOneNoteImporter extends OneNoteImporter {
+	pagesBySection: Record<string, OnenotePage[]> = {};
+	recordedPaths: Record<string, string> = {};
+	init() {
+		// Skip UI setup
+	}
+	async fetchResource<T>(_url: string, _type: any, _progress?: any): Promise<any> {
+		if (_url.includes('/sections/')) {
+			const match = /sections\/([^/]+)\/pages/.exec(_url);
+			if (match) {
+				return { value: this.pagesBySection[match[1]] ?? [] };
+			}
+		}
+		return { value: [] as T[] };
+	}
+	async processFile(progress: any, _content: string, page: OnenotePage) {
+		const outputFolder = await this.getOutputFolder();
+		const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
+		let pageFolder;
+		if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
+		else pageFolder = this.vault.getAbstractFileByPath(outputPath);
+		this.recordedPaths[page.id!] = (pageFolder as any).path;
+		progress.reportNoteSuccess(page.title!);
+	}
+}
+
+const notebooks: Notebook[] = [{
+	id: 'nb1',
+	displayName: 'Notebook',
+	sections: [
+		{ id: 's1', displayName: 'Section One' },
+		{ id: 's2', displayName: 'Section Two' }
+	]
+}];
+
+const pages: Record<string, OnenotePage[]> = {
+	s1: [
+		{ id: 'p1', title: 'Page 1', level: 0, contentUrl: 'page-id=p1}' },
+		{ id: 'p2', title: 'Page 2', level: 0, contentUrl: 'page-id=p2}' }
+	],
+	s2: [
+		{ id: 'p3', title: 'Page 3', level: 0, contentUrl: 'page-id=p3}' },
+		{ id: 'p4', title: 'Page 4', level: 0, contentUrl: 'page-id=p4}' }
+	],
+};
+
+test('imports all OneNote pages into their sections when importing a notebook', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'OneNote';
+	importer.notebooks = notebooks;
+	importer.pagesBySection = pages;
+	importer.selectedIds = ['s1', 's2'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	assert.deepStrictEqual(importer.recordedPaths, {
+		p1: 'OneNote/Notebook/Section One',
+		p2: 'OneNote/Notebook/Section One',
+		p3: 'OneNote/Notebook/Section Two',
+		p4: 'OneNote/Notebook/Section Two',
+	});
+});
+
+test('respects nested output folders when importing OneNote sections', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'Nested/OneNote';
+	importer.notebooks = notebooks;
+	importer.pagesBySection = pages;
+	importer.selectedIds = ['s1', 's2'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	assert.deepStrictEqual(importer.recordedPaths, {
+		p1: 'Nested/OneNote/Notebook/Section One',
+		p2: 'Nested/OneNote/Notebook/Section One',
+		p3: 'Nested/OneNote/Notebook/Section Two',
+		p4: 'Nested/OneNote/Notebook/Section Two',
+	});
+});
