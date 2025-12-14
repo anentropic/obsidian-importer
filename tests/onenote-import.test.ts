@@ -235,3 +235,37 @@ test('keeps all pages from a section inside that section (no section groups)', a
 		p4: 'OneNote/Notebook/Section Two/Page 4.md',
 	});
 });
+
+test('duplicate section IDs with missing display name can flatten pages to notebook root', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'OneNote';
+	// Two sections share the same ID; the first has no displayName, so searchSectionGroups
+	// will match it first and build a path missing the section name.
+	importer.notebooks = [{
+		id: 'nb1',
+		displayName: 'Notebook',
+		sections: [
+			{ id: 's-dup', displayName: '' as any },
+			{ id: 's-dup', displayName: 'Actual Section' },
+		],
+	}];
+	importer.pagesBySection = {
+		's-dup': [
+			{ id: 'pA', title: 'Page A', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/A/content?page-id={pA}' },
+			{ id: 'pB', title: 'Page B', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/B/content?page-id={pB}' },
+		],
+	};
+	importer.selectedIds = ['s-dup'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	assert.deepStrictEqual(importer.recordedPaths, {
+		pA: 'OneNote/Notebook/Page A.md',
+		pB: 'OneNote/Notebook/Page B.md',
+	});
+});
