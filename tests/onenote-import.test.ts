@@ -166,12 +166,12 @@ const notebooks: Notebook[] = [{
 
 const pages: Record<string, OnenotePage[]> = {
 	s1: [
-		{ id: 'p1', title: 'Page 1', level: 0, contentUrl: 'page-id=p1}' },
-		{ id: 'p2', title: 'Page 2', level: 0, contentUrl: 'page-id=p2}' }
+		{ id: 'p1', title: 'Page 1', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1/content?page-id={p1}' },
+		{ id: 'p2', title: 'Page 2', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2/content?page-id={p2}' }
 	],
 	s2: [
-		{ id: 'p3', title: 'Page 3', level: 0, contentUrl: 'page-id=p3}' },
-		{ id: 'p4', title: 'Page 4', level: 0, contentUrl: 'page-id=p4}' }
+		{ id: 'p3', title: 'Page 3', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/3/content?page-id={p3}' },
+		{ id: 'p4', title: 'Page 4', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/4/content?page-id={p4}' }
 	],
 };
 
