@@ -40,8 +40,8 @@ class TestOneNoteImporter {
         }
 
         // Then search in sections at this level
-        if (parentEntity.sections) {
-            for (const section of parentEntity.sections!) {
+        if (parentEntity.sections && parentEntity.sections.length > 0) {
+            for (const section of parentEntity.sections) {
                 if (section.id === sectionId) {
                     section.pages = pages;
                 }
@@ -118,11 +118,13 @@ class TestOneNoteImporter {
     private searchSectionGroups(entityID: string, currentPath: string, groups: SectionGroup[] | OnenoteSection[]): string | null {
         let returnPath: string | null = null;
         for (const group of groups) {
-            // BUG: Missing break statement when group.id matches!
-            // This causes returnPath to be potentially overwritten by subsequent iterations
+            // NOTE: This implementation INTENTIONALLY contains the bug we're testing for.
+            // The original code was missing a break statement when group.id matches,
+            // which could cause returnPath to be overwritten by subsequent iterations.
+            // In the actual fix (onenote.ts), a break statement has been added.
             if (group.id === entityID) {
                 returnPath = `${currentPath}/${group.displayName}`;
-                // Missing: break;  <-- THE BUG!
+                // INTENTIONALLY MISSING: break;  <-- THE BUG WE'RE DOCUMENTING!
             }
             else {
                 const foundPath = this.getEntityPath(entityID, `${currentPath}/${group.displayName}`, group);

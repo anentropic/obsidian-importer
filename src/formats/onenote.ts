@@ -541,7 +541,12 @@ export class OneNoteImporter extends FormatImporter {
 		try {
 			const splitContent = this.convertFormat(content);
 			const outputFolder = await this.getOutputFolder();
-			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name);
+			
+			if (!outputFolder) {
+				throw new Error(`No output folder selected. Please select a location to export to.`);
+			}
+			
+			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder.name);
 			
 			if (!outputPath) {
 				throw new Error(`Unable to determine output path for page "${page.title}" (ID: ${page.id}). The page may not be properly associated with its section.`);
