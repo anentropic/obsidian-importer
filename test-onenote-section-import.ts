@@ -1,5 +1,9 @@
 /**
- * Test to reproduce OneNote section import bug
+ * Test to reproduce and document OneNote section import bug
+ * 
+ * ⚠️ WARNING: This test file contains INTENTIONAL bug reproduction code for documentation purposes.
+ * The implementation in this file deliberately includes the bug to demonstrate the issue.
+ * The actual fix is applied in src/formats/onenote.ts
  * 
  * Bug Report:
  * - User imports from OneNote
@@ -118,13 +122,19 @@ class TestOneNoteImporter {
     private searchSectionGroups(entityID: string, currentPath: string, groups: SectionGroup[] | OnenoteSection[]): string | null {
         let returnPath: string | null = null;
         for (const group of groups) {
-            // NOTE: This implementation INTENTIONALLY contains the bug we're testing for.
-            // The original code was missing a break statement when group.id matches,
-            // which could cause returnPath to be overwritten by subsequent iterations.
-            // In the actual fix (onenote.ts), a break statement has been added.
+            // ====================================================================
+            // ⚠️ WARNING: INTENTIONAL BUG REPRODUCTION CODE BELOW
+            // ====================================================================
+            // This implementation DELIBERATELY reproduces the original bug for testing.
+            // The actual production code in src/formats/onenote.ts has been fixed
+            // with a break statement after line 785.
+            // 
+            // THE BUG: Missing break statement when group.id matches entityID
+            // IMPACT: returnPath could be overwritten by subsequent loop iterations
+            // ====================================================================
             if (group.id === entityID) {
                 returnPath = `${currentPath}/${group.displayName}`;
-                // INTENTIONALLY MISSING: break;  <-- THE BUG WE'RE DOCUMENTING!
+                // DELIBERATELY OMITTED: break;  <-- THE BUG WE'RE DOCUMENTING!
             }
             else {
                 const foundPath = this.getEntityPath(entityID, `${currentPath}/${group.displayName}`, group);
