@@ -230,9 +230,6 @@ test('keeps all pages from a section inside that section (no section groups)', a
 	importer.notebooks = notebooks;
 	importer.pagesBySection = pages;
 	importer.selectedIds = ['s1', 's2'];
-	// Simulate the reported behavior: the first page of a section lands in the
-	// section folder, but later pages in the section end up at the vault root.
-	importer.simulateRootPlacementBug = true;
 
 	const ctx = new TestContext();
 	await importer.import(ctx as any);
@@ -276,6 +273,46 @@ test('duplicate section IDs with missing display name can flatten pages to noteb
 	assert.deepStrictEqual(importer.recordedPaths, {
 		pA: 'OneNote/Notebook/Page A.md',
 		pB: 'OneNote/Notebook/Page B.md',
+	});
+});
+
+test('out-of-order section-page fetch still keeps pages in their sections', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'OneNote';
+	// Pages for s2 arrive first, then pages for s1
+	importer.notebooks = [{
+		id: 'nb1',
+		displayName: 'Notebook',
+		sections: [
+			{ id: 's1', displayName: 'Section One' },
+			{ id: 's2', displayName: 'Section Two' },
+		],
+	}];
+	importer.pagesBySection = {
+		s2: [
+			{ id: 'p2a', title: 'Page 2A', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2a/content?page-id={p2a}' },
+			{ id: 'p2b', title: 'Page 2B', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2b/content?page-id={p2b}' },
+		],
+		s1: [
+			{ id: 'p1a', title: 'Page 1A', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1a/content?page-id={p1a}' },
+			{ id: 'p1b', title: 'Page 1B', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1b/content?page-id={p1b}' },
+		],
+	};
+	// Simulate fetch order: s2 first, then s1
+	importer.selectedIds = ['s2', 's1'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	assert.deepStrictEqual(importer.recordedPaths, {
+		p2a: 'OneNote/Notebook/Section Two/Page 2A.md',
+		p2b: 'OneNote/Notebook/Section Two/Page 2B.md',
+		p1a: 'OneNote/Notebook/Section One/Page 1A.md',
+		p1b: 'OneNote/Notebook/Section One/Page 1B.md',
 	});
 });
 
