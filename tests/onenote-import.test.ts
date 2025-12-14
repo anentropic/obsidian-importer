@@ -132,11 +132,11 @@ class TestContext {
 class TestOneNoteImporter extends OneNoteImporter {
 	pagesBySection: Record<string, OnenotePage[]> = {};
 	recordedPaths: Record<string, string> = {};
-	simulateRootPlacementBug = false;
-	sectionFirstPageSeen = new Set<string>();
+
 	init() {
 		// Skip UI setup
 	}
+
 	async fetchResource<T>(_url: string, _type: any, _progress?: any): Promise<any> {
 		if (_url.includes('/sections/')) {
 			const match = /sections\/([^/]+)\/pages/.exec(_url);
@@ -144,31 +144,27 @@ class TestOneNoteImporter extends OneNoteImporter {
 				return { value: this.pagesBySection[match[1]] ?? [] };
 			}
 		}
-		return { value: [] as T[] };
+		// Minimal HTML body for page content
+		return '<html><body><p>content</p></body></html>' as unknown as T;
 	}
+
+	convertFormat(input: string) {
+		return { html: input, inkml: '' };
+	}
+
 	async processFile(progress: any, _content: string, page: OnenotePage) {
 		const outputFolder = await this.getOutputFolder();
 		const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
-		let targetFolderPath = outputPath;
 
-		if (this.simulateRootPlacementBug) {
-			const sectionName = outputPath.split('/').pop() ?? outputPath;
-			if (this.sectionFirstPageSeen.has(sectionName)) {
-				targetFolderPath = '';
-			}
-			else {
-				this.sectionFirstPageSeen.add(sectionName);
-			}
+		let pageFolder: TFolder;
+		if (!await this.vault.adapter.exists(outputPath)) {
+			pageFolder = await this.vault.createFolder(outputPath);
+		}
+		else {
+			pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
 		}
 
-		let pageFolder;
-		if (targetFolderPath === '') {
-			pageFolder = new TFolder('');
-		}
-		else if (!await this.vault.adapter.exists(targetFolderPath)) pageFolder = await this.vault.createFolder(targetFolderPath);
-		else pageFolder = this.vault.getAbstractFileByPath(targetFolderPath);
-
-		this.recordedPaths[page.id!] = `${(pageFolder as any).path}/${page.title}.md`;
+		this.recordedPaths[page.id!] = `${pageFolder.path}/${page.title}.md`;
 		progress.reportNoteSuccess(page.title!);
 	}
 }
