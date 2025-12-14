@@ -270,7 +270,7 @@ test('duplicate section IDs with missing display name can flatten pages to noteb
 	});
 });
 
-test('all sections present, multiple pages per section — reported spillover to root', async () => {
+test('all sections present, multiple pages per section — pages stay in their sections', async () => {
 	const app = new TestApp();
 	const modal = new TestModal();
 	const importer = new TestOneNoteImporter(app as any, modal as any);
@@ -300,11 +300,10 @@ test('all sections present, multiple pages per section — reported spillover to
 	const ctx = new TestContext();
 	await importer.import(ctx as any);
 
-	// Expected if spillover happens: only first page per section stays in its section, others hit root
 	assert.deepStrictEqual(importer.recordedPaths, {
 		p1a: 'OneNote/Notebook/Section One/Page 1A.md',
-		p1b: '/Page 1B.md',
+		p1b: 'OneNote/Notebook/Section One/Page 1B.md',
 		p2a: 'OneNote/Notebook/Section Two/Page 2A.md',
-		p2b: '/Page 2B.md',
+		p2b: 'OneNote/Notebook/Section Two/Page 2B.md',
 	});
 });
