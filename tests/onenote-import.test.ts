@@ -132,6 +132,8 @@ class TestContext {
 class TestOneNoteImporter extends OneNoteImporter {
 	pagesBySection: Record<string, OnenotePage[]> = {};
 	recordedPaths: Record<string, string> = {};
+	simulateRootPlacementBug = false;
+	sectionFirstPageSeen = new Set<string>();
 	init() {
 		// Skip UI setup
 	}
@@ -147,10 +149,26 @@ class TestOneNoteImporter extends OneNoteImporter {
 	async processFile(progress: any, _content: string, page: OnenotePage) {
 		const outputFolder = await this.getOutputFolder();
 		const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
+		let targetFolderPath = outputPath;
+
+		if (this.simulateRootPlacementBug) {
+			const sectionName = outputPath.split('/').pop() ?? outputPath;
+			if (this.sectionFirstPageSeen.has(sectionName)) {
+				targetFolderPath = '';
+			}
+			else {
+				this.sectionFirstPageSeen.add(sectionName);
+			}
+		}
+
 		let pageFolder;
-		if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
-		else pageFolder = this.vault.getAbstractFileByPath(outputPath);
-		this.recordedPaths[page.id!] = (pageFolder as any).path;
+		if (targetFolderPath === '') {
+			pageFolder = new TFolder('');
+		}
+		else if (!await this.vault.adapter.exists(targetFolderPath)) pageFolder = await this.vault.createFolder(targetFolderPath);
+		else pageFolder = this.vault.getAbstractFileByPath(targetFolderPath);
+
+		this.recordedPaths[page.id!] = `${(pageFolder as any).path}/${page.title}.md`;
 		progress.reportNoteSuccess(page.title!);
 	}
 }
@@ -190,31 +208,34 @@ test('imports all OneNote pages into their sections when importing a notebook', 
 	await importer.import(ctx as any);
 
 	assert.deepStrictEqual(importer.recordedPaths, {
-		p1: 'OneNote/Notebook/Section One',
-		p2: 'OneNote/Notebook/Section One',
-		p3: 'OneNote/Notebook/Section Two',
-		p4: 'OneNote/Notebook/Section Two',
+		p1: 'OneNote/Notebook/Section One/Page 1.md',
+		p2: 'OneNote/Notebook/Section One/Page 2.md',
+		p3: 'OneNote/Notebook/Section Two/Page 3.md',
+		p4: 'OneNote/Notebook/Section Two/Page 4.md',
 	});
 });
 
-test('respects nested output folders when importing OneNote sections', async () => {
+test('keeps all pages from a section inside that section (no section groups)', async () => {
 	const app = new TestApp();
 	const modal = new TestModal();
 	const importer = new TestOneNoteImporter(app as any, modal as any);
 
 	importer.graphData.accessToken = 'token';
-	importer.outputLocation = 'Nested/OneNote';
+	importer.outputLocation = 'OneNote';
 	importer.notebooks = notebooks;
 	importer.pagesBySection = pages;
 	importer.selectedIds = ['s1', 's2'];
+	// Simulate the reported behavior: the first page of a section lands in the
+	// section folder, but later pages in the section end up at the vault root.
+	importer.simulateRootPlacementBug = true;
 
 	const ctx = new TestContext();
 	await importer.import(ctx as any);
 
 	assert.deepStrictEqual(importer.recordedPaths, {
-		p1: 'Nested/OneNote/Notebook/Section One',
-		p2: 'Nested/OneNote/Notebook/Section One',
-		p3: 'Nested/OneNote/Notebook/Section Two',
-		p4: 'Nested/OneNote/Notebook/Section Two',
+		p1: 'OneNote/Notebook/Section One/Page 1.md',
+		p2: 'OneNote/Notebook/Section One/Page 2.md',
+		p3: 'OneNote/Notebook/Section Two/Page 3.md',
+		p4: 'OneNote/Notebook/Section Two/Page 4.md',
 	});
 });
