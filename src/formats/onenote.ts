@@ -510,19 +510,23 @@ export class OneNoteImporter extends FormatImporter {
 		}
 	}
 
-	insertPagesToSection(pages: OnenotePage[], sectionId: string, parentEntity?: Notebook | SectionGroup) {
+	insertPagesToSection(pages: OnenotePage[], sectionId: string, parentEntity?: Notebook | SectionGroup): boolean {
 		if (!parentEntity) {
 			for (const notebook of this.notebooks) {
-				this.insertPagesToSection(pages, sectionId, notebook);
+				if (this.insertPagesToSection(pages, sectionId, notebook)) {
+					return true;
+				}
 			}
-			return;
+			return false;
 		}
 
 		if (parentEntity.sectionGroups) {
 			// Recursively search in section groups
 			const sectionGroups: SectionGroup[] = parentEntity.sectionGroups;
 			for (const sectionGroup of sectionGroups) {
-				this.insertPagesToSection(pages, sectionId, sectionGroup);
+				if (this.insertPagesToSection(pages, sectionId, sectionGroup)) {
+					return true;
+				}
 			}
 		}
 
@@ -532,9 +536,12 @@ export class OneNoteImporter extends FormatImporter {
 			for (const section of sectionGroup.sections!) {
 				if (section.id === sectionId) {
 					section.pages = pages;
+					return true;
 				}
 			}
 		}
+
+		return false;
 	}
 
 	async processFile(progress: ImportContext, content: string, page: OnenotePage) {
@@ -713,28 +720,28 @@ export class OneNoteImporter extends FormatImporter {
 	 * (Export folder)/Notebook/(possible section groups)/Section/(possible pages with a higher level)
 	 */
 	getEntityPath(entityID: string, currentPath: string, parentEntity: Notebook | SectionGroup | OnenoteSection): string | null {
-		let returnPath: string | null = null;
-
 		if ('sectionGroups' in parentEntity && parentEntity.sectionGroups) {
 			const path = this.searchSectionGroups(entityID, currentPath, parentEntity.sectionGroups);
-			if (path !== null) returnPath = path;
+			if (path !== null) {
+				return this.sanitizeFilePath(path);
+			}
 		}
 
 		if ('sections' in parentEntity && parentEntity.sections) {
 			const path = this.searchSectionGroups(entityID, currentPath, parentEntity.sections);
-			if (path !== null) returnPath = path;
+			if (path !== null) {
+				return this.sanitizeFilePath(path);
+			}
 		}
 
 		if ('pages' in parentEntity && parentEntity.pages) {
 			const path = this.searchPages(entityID, currentPath, parentEntity);
-			if (path !== null) returnPath = path;
+			if (path !== null) {
+				return this.sanitizeFilePath(path);
+			}
 		}
 
-		if (returnPath) {
-			returnPath = this.sanitizeFilePath(returnPath);
-		}
-
-		return returnPath;
+		return null;
 	}
 
 	private searchPages(entityID: string, currentPath: string, section: OnenoteSection): string | null {
