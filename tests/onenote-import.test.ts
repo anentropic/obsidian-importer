@@ -141,7 +141,16 @@ class TestOneNoteImporter extends OneNoteImporter {
 		if (_url.includes('/sections/')) {
 			const match = /sections\/([^/]+)\/pages/.exec(_url);
 			if (match) {
-				return { value: this.pagesBySection[match[1]] ?? [] };
+				const value = (this.pagesBySection[match[1]] ?? []).map((p) => ({
+					...p,
+					createdDateTime: '2023-01-01T00:00:00Z',
+					lastModifiedDateTime: '2023-01-02T00:00:00Z',
+					self: `https://graph.microsoft.com/v1.0/me/onenote/pages/${p.id}`,
+				}));
+				return {
+					'@odata.context': 'https://graph.microsoft.com/v1.0/$metadata#users(\'{id}\')/notes/sections(\'{id}\')/pages',
+					value,
+				};
 			}
 		}
 		// Minimal HTML body for page content
