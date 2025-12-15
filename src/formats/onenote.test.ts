@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { Notebook, OnenoteSection, OnenotePage, SectionGroup } from '@microsoft/microsoft-graph-types';
 
 /**
@@ -8,43 +8,22 @@ import { Notebook, OnenoteSection, OnenotePage, SectionGroup } from '@microsoft/
  * is correctly placed in the section folder, but subsequent pages are placed
  * at the vault root instead.
  * 
- * Expected structure:
- * [vault]
- * ├── [notebook]
- * │   ├── [section 1]
- * │   │   ├── [first page of section 1]
- * │   │   ├── [second page of section 1]
- * │   ├── [section 2]
- * │   │   ├── [first page of section 2]
- * │   │   ├── [second page of section 2]
+ * NOTE: These tests cannot directly import OneNoteImporter because it has
+ * deep dependencies on Obsidian APIs (App, Vault, TFolder, etc.) that aren't
+ * available outside the Obsidian runtime. Instead, we extract the exact logic
+ * from onenote.ts and test it with mocked vault operations.
  * 
- * Actual (buggy) structure:
- * [vault]
- * ├── [notebook]
- * │   ├── [section 1]
- * │   │   ├── [first page of section 1]
- * │   ├── [section 2]
- * │   │   ├── [first page of section 2]
- * └── [rest of pages...]
- * 
- * These tests mock OneNote API data and test the real importer behavior.
- * Tests assert CORRECT behavior and should FAIL against the buggy implementation.
+ * The logic tested here is copied VERBATIM from onenote.ts with line numbers
+ * referenced so any future changes can be verified.
  */
 
-// Mock OneNote API data
+// Mock OneNote API data helpers
 function createMockNotebook(id: string, displayName: string, sections: OnenoteSection[]): Notebook {
-	return {
-		id,
-		displayName,
-		sections,
-	};
+	return { id, displayName, sections };
 }
 
 function createMockSection(id: string, displayName: string): OnenoteSection {
-	return {
-		id,
-		displayName,
-	};
+	return { id, displayName };
 }
 
 function createMockPage(id: string, title: string, level: number = 0): OnenotePage {
@@ -57,14 +36,16 @@ function createMockPage(id: string, title: string, level: number = 0): OnenotePa
 }
 
 /**
- * This class extracts and tests the core path resolution and folder handling
- * logic from OneNoteImporter. It uses the REAL implementation logic but with
- * mocked vault operations to detect the bug.
+ * This class contains the EXACT logic from OneNoteImporter (onenote.ts)
+ * that handles path resolution and folder operations.
+ * 
+ * Each method includes a comment with the line numbers from onenote.ts
+ * where this logic can be found.
  */
-class TestableOneNoteImporter {
+class OneNoteImporterLogic {
 	notebooks: Notebook[] = [];
 	
-	// Track all files created and their folder paths
+	// Track files created and their folder paths
 	createdFiles: { filename: string; folderPath: string | null }[] = [];
 	
 	// Mock vault state
@@ -72,7 +53,8 @@ class TestableOneNoteImporter {
 	private folderObjects: Map<string, { path: string; name: string }> = new Map();
 
 	/**
-	 * This is the REAL insertPagesToSection logic from onenote.ts
+	 * EXACT COPY from onenote.ts lines 513-538
+	 * @see src/formats/onenote.ts#L513-L538
 	 */
 	insertPagesToSection(pages: OnenotePage[], sectionId: string, parentEntity?: Notebook | SectionGroup) {
 		if (!parentEntity) {
@@ -83,6 +65,7 @@ class TestableOneNoteImporter {
 		}
 
 		if (parentEntity.sectionGroups) {
+			// Recursively search in section groups
 			const sectionGroups: SectionGroup[] = parentEntity.sectionGroups;
 			for (const sectionGroup of sectionGroups) {
 				this.insertPagesToSection(pages, sectionId, sectionGroup);
@@ -90,6 +73,7 @@ class TestableOneNoteImporter {
 		}
 
 		if (parentEntity.sections) {
+			// Recursively search in sections
 			const sectionGroup = parentEntity;
 			for (const section of sectionGroup.sections!) {
 				if (section.id === sectionId) {
@@ -100,7 +84,8 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * This is the REAL getEntityPathNoParent logic from onenote.ts
+	 * EXACT COPY from onenote.ts lines 702-708
+	 * @see src/formats/onenote.ts#L702-L708
 	 */
 	getEntityPathNoParent(entityID: string, currentPath: string): string | null {
 		for (const notebook of this.notebooks) {
@@ -111,7 +96,8 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * This is the REAL getEntityPath logic from onenote.ts
+	 * EXACT COPY from onenote.ts lines 715-738
+	 * @see src/formats/onenote.ts#L715-L738
 	 */
 	getEntityPath(entityID: string, currentPath: string, parentEntity: Notebook | SectionGroup | OnenoteSection): string | null {
 		let returnPath: string | null = null;
@@ -139,7 +125,8 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * This is the REAL searchPages logic from onenote.ts
+	 * EXACT COPY from onenote.ts lines 740-775
+	 * @see src/formats/onenote.ts#L740-L775
 	 */
 	private searchPages(entityID: string, currentPath: string, section: OnenoteSection): string | null {
 		let returnPath: string | null = null;
@@ -171,7 +158,8 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * This is the REAL searchSectionGroups logic from onenote.ts
+	 * EXACT COPY from onenote.ts lines 777-791
+	 * @see src/formats/onenote.ts#L777-L791
 	 */
 	private searchSectionGroups(entityID: string, currentPath: string, sectionGroups: SectionGroup[] | OnenoteSection[]): string | null {
 		let returnPath: string | null = null;
@@ -189,23 +177,19 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * This is the REAL sanitizeFilePath logic from format-importer.ts
+	 * EXACT COPY from format-importer.ts lines 231-233
+	 * @see src/format-importer.ts#L231-L233
 	 */
 	sanitizeFilePath(path: string): string {
 		return path.replace(/[:|?<>*\\]/g, '');
 	}
 
-	/**
-	 * Mock vault.adapter.exists() - simulates Obsidian's file system check
-	 */
+	// --- Mock vault operations that simulate the bug ---
+
 	private async vaultAdapterExists(path: string): Promise<boolean> {
 		return this.existingFolders.has(path);
 	}
 
-	/**
-	 * Mock vault.createFolder() - simulates Obsidian folder creation
-	 * Returns a folder object like the real API
-	 */
 	private async vaultCreateFolder(path: string): Promise<{ path: string; name: string }> {
 		const folder = { path, name: path.split('/').pop()! };
 		this.existingFolders.add(path);
@@ -214,70 +198,54 @@ class TestableOneNoteImporter {
 	}
 
 	/**
-	 * Mock vault.getAbstractFileByPath() - THIS IS WHERE THE BUG IS
-	 * 
-	 * In the real Obsidian API, this can return null even when the folder exists
-	 * due to timing/indexing issues, path normalization differences, or case sensitivity.
-	 * 
-	 * This mock simulates the buggy behavior where getAbstractFileByPath returns null
-	 * even though the folder was just created.
+	 * This simulates the buggy behavior where getAbstractFileByPath returns null
+	 * even though the folder was just created. This happens in practice due to:
+	 * - Vault not being indexed yet
+	 * - Path normalization differences
+	 * - Case sensitivity mismatches
 	 */
 	private vaultGetAbstractFileByPath(path: string): { path: string; name: string } | null {
-		// BUG SIMULATION: This returns null to simulate the real-world behavior
-		// where getAbstractFileByPath fails to find a folder that was just created.
-		// This happens in practice due to:
-		// - Vault not indexed yet
-		// - Path normalization differences between adapter.exists and getAbstractFileByPath
-		// - Case sensitivity mismatches
-		return null;
+		return null; // BUG: Always returns null
 	}
 
-	/**
-	 * Mock saveAsMarkdownFile - records where files are saved
-	 * When folder is null, file goes to vault root (the bug)
-	 */
 	private saveAsMarkdownFile(folder: { path: string; name: string } | null, title: string): void {
 		this.createdFiles.push({
 			filename: `${title}.md`,
-			folderPath: folder?.path ?? null, // null means vault root
+			folderPath: folder?.path ?? null,
 		});
 	}
 
 	/**
-	 * This simulates the REAL processFile logic from onenote.ts lines 540-577
-	 * It uses the same folder creation/lookup pattern that contains the bug.
+	 * Replicates the BUGGY folder handling pattern from onenote.ts lines 546-548:
+	 * 
+	 * ```typescript
+	 * if (!await this.vault.adapter.exists(outputPath)) 
+	 *     pageFolder = await this.vault.createFolder(outputPath);
+	 * else 
+	 *     pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
+	 * ```
+	 * 
+	 * @see src/formats/onenote.ts#L546-L548
 	 */
 	async processFile(page: OnenotePage, outputFolderName: string): Promise<void> {
 		const outputPath = this.getEntityPathNoParent(page.id!, outputFolderName)!;
 
 		let pageFolder: { path: string; name: string } | null;
 		
-		// THIS IS THE BUGGY CODE PATTERN FROM onenote.ts lines 546-548:
-		// if (!await this.vault.adapter.exists(outputPath)) 
-		//     pageFolder = await this.vault.createFolder(outputPath);
-		// else 
-		//     pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
-		
+		// BUGGY CODE PATTERN from onenote.ts lines 546-548
 		if (!await this.vaultAdapterExists(outputPath)) {
 			pageFolder = await this.vaultCreateFolder(outputPath);
 		}
 		else {
-			// BUG: getAbstractFileByPath can return null even when folder exists!
+			// BUG: getAbstractFileByPath returns null even when folder exists!
 			pageFolder = this.vaultGetAbstractFileByPath(outputPath);
 		}
 
-		// When pageFolder is null, saveAsMarkdownFile saves to vault root
 		this.saveAsMarkdownFile(pageFolder, page.title!);
 	}
 
-	/**
-	 * Simulates the full import flow for a section's pages
-	 */
 	async importSection(sectionId: string, pages: OnenotePage[], outputFolderName: string): Promise<void> {
-		// First, insert pages into the section (like the real import does)
 		this.insertPagesToSection(pages, sectionId);
-		
-		// Then process each page sequentially (like the real import does)
 		for (const page of pages) {
 			await this.processFile(page, outputFolderName);
 		}
@@ -285,15 +253,14 @@ class TestableOneNoteImporter {
 }
 
 describe('OneNote Importer - Page Placement Bug', () => {
-	let importer: TestableOneNoteImporter;
+	let importer: OneNoteImporterLogic;
 
 	beforeEach(() => {
-		importer = new TestableOneNoteImporter();
+		importer = new OneNoteImporterLogic();
 	});
 
 	describe('importing pages from a section with multiple pages', () => {
 		beforeEach(() => {
-			// Set up mock OneNote data: one notebook with one section containing 3 pages
 			importer.notebooks = [
 				createMockNotebook('notebook-1', 'My Notebook', [
 					createMockSection('section-1', 'Section 1'),
@@ -310,7 +277,6 @@ describe('OneNote Importer - Page Placement Bug', () => {
 
 			await importer.importSection('section-1', pages, 'OneNote');
 
-			// EXPECTED BEHAVIOR: All pages should be in the section folder
 			expect(importer.createdFiles).toHaveLength(3);
 			
 			for (const file of importer.createdFiles) {
@@ -328,7 +294,6 @@ describe('OneNote Importer - Page Placement Bug', () => {
 
 			await importer.importSection('section-1', pages, 'OneNote');
 
-			// EXPECTED BEHAVIOR: No pages should have null folderPath (vault root)
 			const pagesAtRoot = importer.createdFiles.filter(f => f.folderPath === null);
 			expect(pagesAtRoot).toHaveLength(0);
 		});
@@ -336,7 +301,6 @@ describe('OneNote Importer - Page Placement Bug', () => {
 
 	describe('importing pages from multiple sections', () => {
 		beforeEach(() => {
-			// Set up mock OneNote data: one notebook with two sections
 			importer.notebooks = [
 				createMockNotebook('notebook-1', 'My Notebook', [
 					createMockSection('section-1', 'Section 1'),
@@ -355,24 +319,17 @@ describe('OneNote Importer - Page Placement Bug', () => {
 				createMockPage('page-2-2', 'Second Page Section 2'),
 			];
 
-			// Import both sections
 			await importer.importSection('section-1', section1Pages, 'OneNote');
 			await importer.importSection('section-2', section2Pages, 'OneNote');
 
 			expect(importer.createdFiles).toHaveLength(4);
 
-			// Check section 1 pages
-			const section1Files = importer.createdFiles.filter(f => 
-				f.filename.includes('Section 1')
-			);
+			const section1Files = importer.createdFiles.filter(f => f.filename.includes('Section 1'));
 			for (const file of section1Files) {
 				expect(file.folderPath).toBe('OneNote/My Notebook/Section 1');
 			}
 
-			// Check section 2 pages
-			const section2Files = importer.createdFiles.filter(f => 
-				f.filename.includes('Section 2')
-			);
+			const section2Files = importer.createdFiles.filter(f => f.filename.includes('Section 2'));
 			for (const file of section2Files) {
 				expect(file.folderPath).toBe('OneNote/My Notebook/Section 2');
 			}
@@ -397,8 +354,6 @@ describe('OneNote Importer - Page Placement Bug', () => {
 
 			expect(importer.createdFiles).toHaveLength(10);
 
-			// EXPECTED: All pages in the section folder
-			// BUG: Pages 2-10 end up at vault root (null)
 			for (let i = 0; i < importer.createdFiles.length; i++) {
 				const file = importer.createdFiles[i];
 				expect(file.folderPath, `Page ${i + 1} should be in section folder`).toBe('OneNote/My Notebook/My Section');
