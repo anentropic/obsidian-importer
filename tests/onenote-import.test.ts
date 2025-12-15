@@ -350,6 +350,39 @@ test('pages flatten to vault root when output folder is empty name', async () =>
 	});
 });
 
+test('notebook/section names that sanitize to empty should still keep pages under notebook/section', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = 'OneNote';
+	// Names that sanitize to empty
+	importer.notebooks = [{
+		id: 'nb-empty',
+		displayName: ':::',
+		sections: [
+			{ id: 's-empty', displayName: '???' as any },
+		],
+	}];
+	importer.pagesBySection = {
+		's-empty': [
+			{ id: 'p-first', title: 'First', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/first/content?page-id={p-first}' },
+			{ id: 'p-rest', title: 'Rest', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/rest/content?page-id={p-rest}' },
+		],
+	};
+	importer.selectedIds = ['s-empty'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	// Correct behavior: pages remain grouped under sanitized notebook/section path, not root.
+	assert.deepStrictEqual(importer.recordedPaths, {
+		'p-first': '/???/First.md',
+		'p-rest': '/???/Rest.md',
+	});
+});
+
 test('all sections present, multiple pages per section — pages stay in their sections', async () => {
 	const app = new TestApp();
 	const modal = new TestModal();
