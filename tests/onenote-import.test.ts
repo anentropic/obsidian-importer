@@ -316,6 +316,40 @@ test('out-of-order section-page fetch still keeps pages in their sections', asyn
 	});
 });
 
+test('pages flatten to vault root when output folder is empty name', async () => {
+	const app = new TestApp();
+	const modal = new TestModal();
+	const importer = new TestOneNoteImporter(app as any, modal as any);
+
+	// Simulate output folder resolving to root with an empty name
+	importer.getOutputFolder = async () => new TFolder('');
+
+	importer.graphData.accessToken = 'token';
+	importer.outputLocation = '';
+	importer.notebooks = notebooks;
+	importer.pagesBySection = {
+		s1: [
+			{ id: 'p1', title: 'Page 1', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/1/content?page-id={p1}' },
+			{ id: 'p2', title: 'Page 2', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/2/content?page-id={p2}' }
+		],
+		s2: [
+			{ id: 'p3', title: 'Page 3', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/3/content?page-id={p3}' },
+			{ id: 'p4', title: 'Page 4', level: 0, contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/4/content?page-id={p4}' }
+		],
+	};
+	importer.selectedIds = ['s1', 's2'];
+
+	const ctx = new TestContext();
+	await importer.import(ctx as any);
+
+	assert.deepStrictEqual(importer.recordedPaths, {
+		p1: '/Page 1.md',
+		p2: '/Page 2.md',
+		p3: '/Page 3.md',
+		p4: '/Page 4.md',
+	});
+});
+
 test('all sections present, multiple pages per section — pages stay in their sections', async () => {
 	const app = new TestApp();
 	const modal = new TestModal();
