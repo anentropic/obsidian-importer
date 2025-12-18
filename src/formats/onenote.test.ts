@@ -61,6 +61,9 @@ class OneNoteImporterTestHarness {
 	}
 
 	private async vaultCreateFolder(path: string): Promise<{ path: string, name: string }> {
+		if (this.existingFolders.has(path)) {
+			throw new Error('Folder already exists');
+		}
 		const folder = { path, name: path.split('/').pop()! };
 		this.existingFolders.add(path);
 		this.folderObjects.set(path, folder);
@@ -111,7 +114,7 @@ class OneNoteImporterTestHarness {
 			}
 			catch (e) {
 				if (folderExists) {
-					const existingFolder = this.vaultGetAbstractFileByPath(outputPath);
+					const existingFolder = this.folderObjects.get(outputPath) ?? this.vaultGetAbstractFileByPath(outputPath);
 					if (existingFolder) pageFolder = existingFolder;
 				}
 				else throw e;
