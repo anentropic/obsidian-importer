@@ -109,6 +109,9 @@ class OneNoteImporterTestHarness {
 		else {
 			// BUG: getAbstractFileByPath returns null even when folder exists!
 			pageFolder = this.vaultGetAbstractFileByPath(outputPath);
+			if (!pageFolder) {
+				pageFolder = this.folderObjects.get(outputPath) ?? { path: outputPath, name: outputPath.split('/').pop()! };
+			}
 		}
 
 		this.saveAsMarkdownFile(pageFolder, page.title!);

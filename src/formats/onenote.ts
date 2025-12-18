@@ -73,6 +73,7 @@ export class OneNoteImporter extends FormatImporter {
 	selectedIds: string[] = [];
 	// Path resolution logic is extracted to enable testing without Obsidian dependencies
 	pathResolver: OneNotePathResolver = new OneNotePathResolver();
+	private folderCache: Map<string, TFolder> = new Map();
 	// Getter/setter to access notebooks via pathResolver for backwards compatibility
 	get notebooks(): Notebook[] {
 		return this.pathResolver.notebooks;
@@ -529,9 +530,11 @@ export class OneNoteImporter extends FormatImporter {
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder: TFolder;
-			if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
-			else pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
+			let pageFolder = this.folderCache.get(outputPath);
+			if (!pageFolder) {
+				pageFolder = await this.createFolders(outputPath);
+				this.folderCache.set(outputPath, pageFolder);
+			}
 
 
 			let taggedPage = this.convertTags(parseHTML(splitContent.html));
