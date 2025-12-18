@@ -543,9 +543,12 @@ export class OneNoteImporter extends FormatImporter {
 			}
 			catch (e) {
 				if (folderExists) {
-					const fallbackFolder = existingFolder ?? this.vault.getAbstractFileByPath(outputPath);
-					if (fallbackFolder instanceof TFolder) pageFolder = fallbackFolder;
-					else throw e;
+					if (existingFolder) pageFolder = existingFolder;
+					else {
+						const refetchedFolder = this.vault.getAbstractFileByPath(outputPath);
+						if (refetchedFolder instanceof TFolder) pageFolder = refetchedFolder;
+						else throw e;
+					}
 				}
 				else throw e;
 			}

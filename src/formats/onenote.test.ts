@@ -114,7 +114,7 @@ class OneNoteImporterTestHarness {
 			}
 			catch (e) {
 				if (folderExists) {
-					const existingFolder = this.folderObjects.get(outputPath) ?? this.vaultGetAbstractFileByPath(outputPath);
+					const existingFolder = this.folderObjects.get(outputPath);
 					if (existingFolder) pageFolder = existingFolder;
 				}
 				else throw e;
