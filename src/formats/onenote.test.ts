@@ -100,18 +100,11 @@ class OneNoteImporterTestHarness {
 	async processFile(page: OnenotePage, outputFolderName: string): Promise<void> {
 		const outputPath = this.pathResolver.getEntityPathNoParent(page.id!, outputFolderName)!;
 
-		let pageFolder: { path: string, name: string } | null;
-		
-		// BUGGY CODE PATTERN from onenote.ts lines 546-548
-		if (!await this.vaultAdapterExists(outputPath)) {
+		let pageFolder = this.folderObjects.get(outputPath) ?? null;
+		// Use same strategy as the implementation: rely on createFolder and cached reference,
+		// not on a path lookup that can return null while the vault indexes.
+		if (!pageFolder) {
 			pageFolder = await this.vaultCreateFolder(outputPath);
-		}
-		else {
-			// BUG: getAbstractFileByPath returns null even when folder exists!
-			pageFolder = this.vaultGetAbstractFileByPath(outputPath);
-			if (!pageFolder) {
-				pageFolder = this.folderObjects.get(outputPath) ?? await this.vaultCreateFolder(outputPath);
-			}
 		}
 
 		this.saveAsMarkdownFile(pageFolder, page.title!);
