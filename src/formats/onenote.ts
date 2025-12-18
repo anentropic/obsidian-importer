@@ -526,15 +526,13 @@ export class OneNoteImporter extends FormatImporter {
 	private async resolvePageFolder(outputPath: string): Promise<TFolder> {
 		const folderExists = await this.vault.adapter.exists(outputPath);
 		let pageFolder: TFolder | null = null;
-		let existingFolder: TFolder | null = null;
 
 		if (folderExists) {
 			const abstractFile = this.vault.getAbstractFileByPath(outputPath);
 			if (abstractFile instanceof TFolder) {
 				pageFolder = abstractFile;
-				existingFolder = abstractFile;
 			}
-			else if (abstractFile) throw new Error(`Expected folder at "${outputPath}" but found a file`);
+			else if (abstractFile) throw new Error(`Expected folder at "${outputPath}" but found ${abstractFile.constructor?.name ?? 'unknown type'}`);
 		}
 
 		if (!pageFolder) {
@@ -543,12 +541,9 @@ export class OneNoteImporter extends FormatImporter {
 			}
 			catch (e) {
 				if (folderExists) {
-					if (existingFolder) pageFolder = existingFolder;
-					else {
-						const refetchedFolder = this.vault.getAbstractFileByPath(outputPath);
-						if (refetchedFolder instanceof TFolder) pageFolder = refetchedFolder;
-						else throw e;
-					}
+					const refetchedFolder = this.vault.getAbstractFileByPath(outputPath);
+					if (refetchedFolder instanceof TFolder) pageFolder = refetchedFolder;
+					else throw e;
 				}
 				else throw e;
 			}
