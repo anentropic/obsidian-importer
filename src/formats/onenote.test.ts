@@ -103,11 +103,17 @@ class OneNoteImporterTestHarness {
 		let pageFolder: { path: string, name: string } | null = null;
 		const folderExists = await this.vaultAdapterExists(outputPath);
 
-		if (!folderExists) pageFolder = await this.vaultCreateFolder(outputPath);
-		else pageFolder = this.vaultGetAbstractFileByPath(outputPath);
+		if (folderExists) pageFolder = this.vaultGetAbstractFileByPath(outputPath);
 
 		if (!pageFolder) {
-			pageFolder = await this.vaultCreateFolder(outputPath);
+			try {
+				pageFolder = await this.vaultCreateFolder(outputPath);
+			}
+			catch (e) {
+				const existingFolder = this.vaultGetAbstractFileByPath(outputPath);
+				if (existingFolder) pageFolder = existingFolder;
+				else throw e;
+			}
 		}
 
 		this.saveAsMarkdownFile(pageFolder, page.title!);

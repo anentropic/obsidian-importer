@@ -523,32 +523,43 @@ export class OneNoteImporter extends FormatImporter {
 		this.pathResolver.insertPagesToSection(pages, sectionId, parentEntity);
 	}
 
+	private async resolvePageFolder(outputPath: string): Promise<TFolder> {
+		const folderExists = await this.vault.adapter.exists(outputPath);
+		let pageFolder: TFolder | null = null;
+
+		if (folderExists) {
+			const abstractFile = this.vault.getAbstractFileByPath(outputPath);
+			if (abstractFile instanceof TFolder) pageFolder = abstractFile;
+			else if (abstractFile) throw new Error(`Expected folder at "${outputPath}" but found a file`);
+		}
+
+		if (!pageFolder) {
+			try {
+				pageFolder = await this.vault.createFolder(outputPath);
+			}
+			catch (e) {
+				if (folderExists && !pageFolder) {
+					const existingFolder = this.vault.getAbstractFileByPath(outputPath);
+					if (existingFolder instanceof TFolder) pageFolder = existingFolder;
+				}
+				else throw e;
+			}
+		}
+
+		if (!pageFolder) {
+			throw new Error('Failed to resolve output folder for OneNote page');
+		}
+
+		return pageFolder;
+	}
+
 	async processFile(progress: ImportContext, content: string, page: OnenotePage) {
 		try {
 			const splitContent = this.convertFormat(content);
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder: TFolder | null = null;
-			const folderExists = await this.vault.adapter.exists(outputPath);
-
-			if (!folderExists) pageFolder = await this.vault.createFolder(outputPath);
-			else pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
-
-			if (!pageFolder) {
-				try {
-					pageFolder = await this.vault.createFolder(outputPath);
-				}
-				catch (e) {
-					const existingFolder = this.vault.getAbstractFileByPath(outputPath);
-					if (existingFolder instanceof TFolder) pageFolder = existingFolder;
-					else throw e;
-				}
-			}
-
-			if (!pageFolder) {
-				throw new Error('Failed to resolve output folder for OneNote page');
-			}
+			const pageFolder = await this.resolvePageFolder(outputPath);
 
 
 			let taggedPage = this.convertTags(parseHTML(splitContent.html));
