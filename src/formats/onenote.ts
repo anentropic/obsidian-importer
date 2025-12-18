@@ -532,7 +532,7 @@ export class OneNoteImporter extends FormatImporter {
 			if (abstractFile instanceof TFolder) {
 				pageFolder = abstractFile;
 			}
-			else if (abstractFile) throw new Error(`Expected folder at "${outputPath}" but found ${abstractFile.constructor?.name ?? 'unknown type'}`);
+			else if (abstractFile) throw new Error(`Expected folder at "${outputPath}" but found ${abstractFile.constructor?.name ?? 'file'}`);
 		}
 
 		if (!pageFolder) {
@@ -543,9 +543,8 @@ export class OneNoteImporter extends FormatImporter {
 				if (folderExists) {
 					const refetchedFolder = this.vault.getAbstractFileByPath(outputPath);
 					if (refetchedFolder instanceof TFolder) pageFolder = refetchedFolder;
-					else throw e;
 				}
-				else throw e;
+				if (!pageFolder) throw e;
 			}
 		}
 
