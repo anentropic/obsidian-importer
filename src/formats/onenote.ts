@@ -548,10 +548,6 @@ export class OneNoteImporter extends FormatImporter {
 			}
 		}
 
-		if (!pageFolder) {
-			throw new Error('Failed to resolve output folder for OneNote page');
-		}
-
 		return pageFolder;
 	}
 

@@ -117,7 +117,7 @@ class OneNoteImporterTestHarness {
 					const existingFolder = this.folderObjects.get(outputPath);
 					if (existingFolder) pageFolder = existingFolder;
 				}
-				else throw e;
+				if (!pageFolder) throw e;
 			}
 		}
 
