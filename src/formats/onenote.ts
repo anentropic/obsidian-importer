@@ -528,18 +528,24 @@ export class OneNoteImporter extends FormatImporter {
 		return abstractFile instanceof TFolder ? abstractFile : null;
 	}
 
+	private getFolderFromPathInsensitive(path: string): TFolder | null {
+		// @ts-ignore - method is available in Obsidian API
+		const abstractFile = this.vault.getAbstractFileByPathInsensitive?.(path) ?? this.vault.getAbstractFileByPath(path);
+		return abstractFile instanceof TFolder ? abstractFile : null;
+	}
+
 	private async resolvePageFolder(outputPath: string): Promise<TFolder> {
 		const folderExists = await this.vault.adapter.exists(outputPath);
 		let pageFolder: TFolder | null = null;
 
 		if (folderExists) {
-			const abstractFile = this.vault.getAbstractFileByPath(outputPath);
-			if (abstractFile instanceof TFolder) {
-				pageFolder = abstractFile;
-			}
-			else if (abstractFile) {
-				const typeName = abstractFile.constructor?.name || 'unknown file type';
-				throw new Error(`Expected folder at "${outputPath}" but found ${typeName}`);
+			pageFolder = this.getFolderFromPathInsensitive(outputPath);
+			if (!pageFolder) {
+				const abstractFile = this.vault.getAbstractFileByPath(outputPath);
+				if (abstractFile && !(abstractFile instanceof TFolder)) {
+					const typeName = abstractFile.constructor?.name || 'unknown file type';
+					throw new Error(`Expected folder at "${outputPath}" but found ${typeName}`);
+				}
 			}
 		}
 
@@ -549,7 +555,7 @@ export class OneNoteImporter extends FormatImporter {
 			}
 			catch (e) {
 				if (folderExists) {
-					const refetchedFolder = this.getFolderFromPath(outputPath);
+					const refetchedFolder = this.getFolderFromPathInsensitive(outputPath);
 					if (refetchedFolder instanceof TFolder) pageFolder = refetchedFolder;
 				}
 				if (!pageFolder) throw e;
