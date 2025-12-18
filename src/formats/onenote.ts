@@ -529,9 +529,26 @@ export class OneNoteImporter extends FormatImporter {
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder: TFolder;
-			if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
+			let pageFolder: TFolder | null = null;
+			const folderExists = await this.vault.adapter.exists(outputPath);
+
+			if (!folderExists) pageFolder = await this.vault.createFolder(outputPath);
 			else pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
+
+			if (!pageFolder) {
+				try {
+					pageFolder = await this.vault.createFolder(outputPath);
+				}
+				catch (e) {
+					const existingFolder = this.vault.getAbstractFileByPath(outputPath);
+					if (existingFolder instanceof TFolder) pageFolder = existingFolder;
+					else throw e;
+				}
+			}
+
+			if (!pageFolder) {
+				throw new Error('Failed to resolve output folder for OneNote page');
+			}
 
 
 			let taggedPage = this.convertTags(parseHTML(splitContent.html));
