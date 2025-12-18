@@ -104,7 +104,7 @@ export class OneNotePathResolver {
 					returnPath = currentPath;
 
 					// Iterate backward to find the parent page
-					for (let j = section.pages!.indexOf(page) - 1; j >= 0; j--) {
+					for (let j = i - 1; j >= 0; j--) {
 						if (section.pages![j].level === page.level! - 1) {
 							returnPath += '/' + section.pages![j].title;
 							break;
