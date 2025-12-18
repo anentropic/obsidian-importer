@@ -419,6 +419,9 @@ export class OneNoteImporter extends FormatImporter {
 			return;
 		}
 
+		// Reset cached section folders for this run to avoid stale references between imports.
+		this.folderCache.clear();
+
 		if (!this.graphData.accessToken) {
 			new Notice('Please sign in to your Microsoft Account.');
 			return;
@@ -530,10 +533,12 @@ export class OneNoteImporter extends FormatImporter {
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder = this.folderCache.get(outputPath);
+			if (!this.folderCache.has(outputPath)) {
+				this.folderCache.set(outputPath, await this.createFolders(outputPath));
+			}
+			const pageFolder = this.folderCache.get(outputPath);
 			if (!pageFolder) {
-				pageFolder = await this.createFolders(outputPath);
-				this.folderCache.set(outputPath, pageFolder);
+				throw new Error(`Failed to resolve folder at "${outputPath}"`);
 			}
 
 
