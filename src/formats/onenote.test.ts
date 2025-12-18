@@ -1,6 +1,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { Notebook, OnenoteSection, OnenotePage } from '@microsoft/microsoft-graph-types';
 import { OneNotePathResolver } from './onenote/path-resolver';
+import { resolveFolderWithCache } from './onenote/folder-cache';
 
 /**
  * Test for OneNote importer page path resolution bug.
@@ -53,6 +54,7 @@ class OneNoteImporterTestHarness {
 	// Mock vault state
 	private existingFolders: Set<string> = new Set();
 	private folderObjects: Map<string, { path: string, name: string }> = new Map();
+	private folderCache: Map<string, { path: string, name: string }> = new Map();
 
 	// --- Mock vault operations that simulate the bug ---
 
@@ -100,13 +102,20 @@ class OneNoteImporterTestHarness {
 	async processFile(page: OnenotePage, outputFolderName: string): Promise<void> {
 		const outputPath = this.pathResolver.getEntityPathNoParent(page.id!, outputFolderName)!;
 
-		let pageFolder = this.folderObjects.get(outputPath) ?? null;
-		// Use same strategy as the implementation: rely on createFolder and cached reference,
-		// not on a path lookup that can return null while the vault indexes.
-		if (!pageFolder) {
-			pageFolder = await this.vaultCreateFolder(outputPath);
-		}
-
+		const pageFolder = await resolveFolderWithCache(
+			this.folderCache,
+			async (path) => {
+				if (!await this.vaultAdapterExists(path)) {
+					return await this.vaultCreateFolder(path);
+				}
+				// Simulate the bug: path lookup returns null even when the folder exists,
+				// so rely on the cached reference instead of getAbstractFileByPath.
+				const existing = this.folderCache.get(path) ?? this.folderObjects.get(path);
+				if (existing) return existing;
+				return await this.vaultCreateFolder(path);
+			},
+			outputPath
+		);
 		this.saveAsMarkdownFile(pageFolder, page.title!);
 	}
 

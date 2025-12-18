@@ -7,6 +7,7 @@ import { AccessTokenResponse } from './onenote/models';
 import { getSiblingsInSameCodeBlock, isFenceCodeBlock, isInlineCodeSpan, isBRElement, isParagraphWrappingOnlyCode } from './onenote/code';
 import { OneNotePathResolver } from './onenote/path-resolver';
 import { MathMLToLaTeX } from 'mathml-to-latex';
+import { resolveFolderWithCache } from './onenote/folder-cache';
 
 const LOCAL_STORAGE_KEY = 'onenote-importer-refresh-token';
 const GRAPH_CLIENT_ID: string = '66553851-08fa-44f2-8bb1-1436f121a73d';
@@ -73,6 +74,7 @@ export class OneNoteImporter extends FormatImporter {
 	selectedIds: string[] = [];
 	// Path resolution logic is extracted to enable testing without Obsidian dependencies
 	pathResolver: OneNotePathResolver = new OneNotePathResolver();
+	private folderCache: Map<string, TFolder> = new Map();
 	// Getter/setter to access notebooks via pathResolver for backwards compatibility
 	get notebooks(): Notebook[] {
 		return this.pathResolver.notebooks;
@@ -418,6 +420,9 @@ export class OneNoteImporter extends FormatImporter {
 			return;
 		}
 
+		// Reset cached section folders for this run to avoid stale references between imports.
+		this.folderCache.clear();
+
 		if (!this.graphData.accessToken) {
 			new Notice('Please sign in to your Microsoft Account.');
 			return;
@@ -529,9 +534,7 @@ export class OneNoteImporter extends FormatImporter {
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder: TFolder;
-			if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
-			else pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
+			const pageFolder = await resolveFolderWithCache(this.folderCache, path => this.createFolders(path), outputPath);
 
 
 			let taggedPage = this.convertTags(parseHTML(splitContent.html));
