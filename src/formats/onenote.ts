@@ -1,5 +1,5 @@
 import { OnenotePage, SectionGroup, User, PublicError, Notebook, OnenoteSection } from '@microsoft/microsoft-graph-types';
-import { DataWriteOptions, Notice, Setting, TFolder, htmlToMarkdown, ObsidianProtocolData, requestUrl, moment } from 'obsidian';
+import { DataWriteOptions, Notice, Setting, htmlToMarkdown, ObsidianProtocolData, requestUrl, moment } from 'obsidian';
 import { genUid, parseHTML } from '../util';
 import { FormatImporter } from '../format-importer';
 import { ATTACHMENT_EXTS, AUTH_REDIRECT_URI, ImportContext } from '../main';
@@ -529,9 +529,7 @@ export class OneNoteImporter extends FormatImporter {
 			const outputFolder = await this.getOutputFolder();
 			const outputPath = this.getEntityPathNoParent(page.id!, outputFolder!.name)!;
 
-			let pageFolder: TFolder;
-			if (!await this.vault.adapter.exists(outputPath)) pageFolder = await this.vault.createFolder(outputPath);
-			else pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
+			const pageFolder = await this.createFolders(outputPath);
 
 
 			let taggedPage = this.convertTags(parseHTML(splitContent.html));

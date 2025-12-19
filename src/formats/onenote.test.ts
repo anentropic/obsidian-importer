@@ -86,30 +86,17 @@ class OneNoteImporterTestHarness {
 	}
 
 	/**
-	 * Replicates the BUGGY folder handling pattern from onenote.ts lines 546-548:
+	 * Uses the FIXED folder handling pattern that always creates the folder
+	 * (or reuses if it exists) and returns a valid folder reference.
 	 * 
-	 * ```typescript
-	 * if (!await this.vault.adapter.exists(outputPath)) 
-	 *     pageFolder = await this.vault.createFolder(outputPath);
-	 * else 
-	 *     pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
-	 * ```
-	 * 
-	 * @see src/formats/onenote.ts#L546-L548
+	 * This matches the fix in onenote.ts which uses createFolders() instead
+	 * of the buggy check-then-get pattern.
 	 */
 	async processFile(page: OnenotePage, outputFolderName: string): Promise<void> {
 		const outputPath = this.pathResolver.getEntityPathNoParent(page.id!, outputFolderName)!;
 
-		let pageFolder: { path: string, name: string } | null;
-		
-		// BUGGY CODE PATTERN from onenote.ts lines 546-548
-		if (!await this.vaultAdapterExists(outputPath)) {
-			pageFolder = await this.vaultCreateFolder(outputPath);
-		}
-		else {
-			// BUG: getAbstractFileByPath returns null even when folder exists!
-			pageFolder = this.vaultGetAbstractFileByPath(outputPath);
-		}
+		// FIXED: Use idempotent folder creation that always returns a valid folder
+		const pageFolder = await this.vaultCreateFolder(outputPath);
 
 		this.saveAsMarkdownFile(pageFolder, page.title!);
 	}
