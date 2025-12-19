@@ -98,8 +98,9 @@ function createTestImporter(
 	importer.pathResolver = new OneNotePathResolver();
 	importer.outputFolderName = 'OneNote';
 
-	// Minimal vault mock: replicates the bug by returning null from getAbstractFileByPath
-	// even when the folder exists.
+	// Minimal vault mock: tracks created folders. getAbstractFileByPath returns null to
+	// mimic the real-world lag where Obsidian may not immediately index a newly created
+	// folder, exposing the importer bug without reimplementing its logic here.
 	importer.vault = {
 		adapter: {
 			exists: async (path: string) => existingFolders.has(path),
