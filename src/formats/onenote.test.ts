@@ -134,6 +134,23 @@ describe('OneNote Importer - Page Placement Bug', () => {
 		importer = new OneNoteImporterTestHarness();
 	});
 
+	describe('resolveFolderWithCache helper', () => {
+		it('caches folders and avoids repeated creation', async () => {
+			const cache = new Map<string, { path: string, name: string }>();
+			let createCount = 0;
+			const makeFolder = async (path: string) => {
+				createCount++;
+				return { path, name: path.split('/').pop()! };
+			};
+
+			const first = await resolveFolderWithCache(cache, makeFolder, 'OneNote/NB/Section');
+			const second = await resolveFolderWithCache(cache, makeFolder, 'OneNote/NB/Section');
+
+			expect(first).toBe(second);
+			expect(createCount).toBe(1);
+		});
+	});
+
 	describe('importing pages from a section with multiple pages', () => {
 		beforeEach(() => {
 			importer.notebooks = [
