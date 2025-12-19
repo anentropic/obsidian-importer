@@ -1,6 +1,56 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
+// Mocks must be declared before importing modules that depend on them.
+vi.mock('obsidian', () => {
+	class FakeSetting {
+		setName() { return this; }
+		setDesc() { return this; }
+		addToggle() { return this; }
+		addButton() { return this; }
+		setCta() { return this; }
+		setButtonText() { return this; }
+		onClick() { return this; }
+		addText() { return this; }
+	}
+
+	return {
+		Notice: class {},
+		Setting: FakeSetting,
+		TFolder: class {},
+		TFile: class {},
+		Vault: class {},
+		App: class {},
+		Plugin: class {},
+		Modal: class {},
+		normalizePath: (p: string) => p,
+		Platform: { isDesktopApp: false },
+		moment: () => ({
+			format: () => '',
+		}),
+		htmlToMarkdown: (html: unknown) => (typeof html === 'string' ? html : String(html)),
+		requestUrl: async () => ({ json: async () => ({}) }),
+	};
+});
+
+// Stub zip dependency used by other format importers pulled in transitively.
+vi.mock('zip', () => ({
+	readZip: async () => ({}),
+	ZipEntryFile: class {},
+}));
+
+vi.mock('../src/util', async () => {
+	const actual = await vi.importActual<typeof import('../src/util')>('../src/util');
+	return {
+		...actual,
+		parseHTML: (html: string) => ({
+			outerHTML: html,
+			querySelectorAll: () => [],
+		}) as unknown as HTMLElement,
+	};
+});
+
 import { Notebook, OnenoteSection, OnenotePage } from '@microsoft/microsoft-graph-types';
-import { OneNotePathResolver } from './onenote/path-resolver';
+import { OneNoteImporter } from '../src/formats/onenote';
+import { OneNotePathResolver } from '../src/formats/onenote/path-resolver';
 
 /**
  * Test for OneNote importer page path resolution bug.
@@ -31,93 +81,85 @@ function createMockPage(id: string, title: string, level: number = 0): OnenotePa
 	};
 }
 
+type MockFolder = { path: string, name: string };
+
+/**
+ * Build a lightweight OneNoteImporter instance that uses the real folder
+ * resolution logic from processFile but swaps out heavy dependencies with
+ * simple stubs suited for unit testing.
+ */
+function createTestImporter(
+	createdFiles: { filename: string, folderPath: string | null }[],
+	existingFolders: Set<string>,
+): OneNoteImporter & { outputFolderName: string } {
+	const importer = Object.create(OneNoteImporter.prototype) as OneNoteImporter & { outputFolderName: string };
+
+	// Use the real path resolver / notebook accessors.
+	importer.pathResolver = new OneNotePathResolver();
+	importer.outputFolderName = 'OneNote';
+
+	// Minimal vault mock: replicates the bug by returning null from getAbstractFileByPath
+	// even when the folder exists.
+	importer.vault = {
+		adapter: {
+			exists: async (path: string) => existingFolders.has(path),
+		},
+		createFolder: async (path: string) => {
+			existingFolders.add(path);
+			return { path, name: path.split('/').pop()! } as MockFolder;
+		},
+		getAbstractFileByPath: (_path: string) => null,
+		append: async () => {},
+	} as any;
+
+	// Lightweight impls for the rest of processFile's collaborators.
+	importer.convertFormat = (content: string) => ({ html: content }) as any;
+	importer.getOutputFolder = async () => ({ name: importer.outputFolderName } as any);
+	importer.convertTags = (element: any) => (typeof element?.outerHTML === 'string' ? element.outerHTML : String(element ?? ''));
+	importer.getAllAttachments = async (_progress: unknown, pageHTML: string) => pageHTML as any;
+	importer.combineCodeBlocksAsNecessary = () => {};
+	importer.styledElementToHTML = () => {};
+	importer.convertInternalLinks = () => {};
+	importer.convertDrawings = () => {};
+	importer.convertMathML = () => {};
+	importer.removeExtraListItemParagraphs = () => {};
+	importer.escapeTextNodes = () => {};
+	importer.saveAsMarkdownFile = async (folder: MockFolder | null, title: string) => {
+		createdFiles.push({
+			filename: `${title}.md`,
+			folderPath: folder?.path ?? null,
+		});
+		return { path: folder?.path ?? null } as any;
+	};
+
+	return importer;
+}
+
 /**
  * Test harness that uses the actual OneNotePathResolver for path resolution
  * while providing mock vault operations to test the page placement bug.
  */
 class OneNoteImporterTestHarness {
-	// Use the actual path resolver implementation
-	pathResolver: OneNotePathResolver = new OneNotePathResolver();
-	
-	// Convenience getter/setter to access notebooks via pathResolver
-	get notebooks(): Notebook[] {
-		return this.pathResolver.notebooks;
-	}
-	set notebooks(value: Notebook[]) {
-		this.pathResolver.notebooks = value;
-	}
-	
-	// Track files created and their folder paths
 	createdFiles: { filename: string, folderPath: string | null }[] = [];
-	
-	// Mock vault state
 	private existingFolders: Set<string> = new Set();
-	private folderObjects: Map<string, { path: string, name: string }> = new Map();
+	private importer = createTestImporter(this.createdFiles, this.existingFolders);
 
-	// --- Mock vault operations that simulate the bug ---
-
-	private async vaultAdapterExists(path: string): Promise<boolean> {
-		return this.existingFolders.has(path);
+	get notebooks(): Notebook[] {
+		return this.importer.notebooks;
 	}
 
-	private async vaultCreateFolder(path: string): Promise<{ path: string, name: string }> {
-		const folder = { path, name: path.split('/').pop()! };
-		this.existingFolders.add(path);
-		this.folderObjects.set(path, folder);
-		return folder;
-	}
-
-	/**
-	 * This simulates the buggy behavior where getAbstractFileByPath returns null
-	 * even though the folder was just created. This happens in practice due to:
-	 * - Vault not being indexed yet
-	 * - Path normalization differences
-	 * - Case sensitivity mismatches
-	 */
-	private vaultGetAbstractFileByPath(path: string): { path: string, name: string } | null {
-		return null; // BUG: Always returns null
-	}
-
-	private saveAsMarkdownFile(folder: { path: string, name: string } | null, title: string): void {
-		this.createdFiles.push({
-			filename: `${title}.md`,
-			folderPath: folder?.path ?? null,
-		});
-	}
-
-	/**
-	 * Replicates the BUGGY folder handling pattern from onenote.ts lines 546-548:
-	 * 
-	 * ```typescript
-	 * if (!await this.vault.adapter.exists(outputPath)) 
-	 *     pageFolder = await this.vault.createFolder(outputPath);
-	 * else 
-	 *     pageFolder = this.vault.getAbstractFileByPath(outputPath) as TFolder;
-	 * ```
-	 * 
-	 * @see src/formats/onenote.ts#L546-L548
-	 */
-	async processFile(page: OnenotePage, outputFolderName: string): Promise<void> {
-		const outputPath = this.pathResolver.getEntityPathNoParent(page.id!, outputFolderName)!;
-
-		let pageFolder: { path: string, name: string } | null;
-		
-		// BUGGY CODE PATTERN from onenote.ts lines 546-548
-		if (!await this.vaultAdapterExists(outputPath)) {
-			pageFolder = await this.vaultCreateFolder(outputPath);
-		}
-		else {
-			// BUG: getAbstractFileByPath returns null even when folder exists!
-			pageFolder = this.vaultGetAbstractFileByPath(outputPath);
-		}
-
-		this.saveAsMarkdownFile(pageFolder, page.title!);
+	set notebooks(value: Notebook[]) {
+		this.importer.notebooks = value;
 	}
 
 	async importSection(sectionId: string, pages: OnenotePage[], outputFolderName: string): Promise<void> {
-		this.pathResolver.insertPagesToSection(pages, sectionId);
+		this.importer.outputFolderName = outputFolderName;
+		this.importer.insertPagesToSection(pages, sectionId);
 		for (const page of pages) {
-			await this.processFile(page, outputFolderName);
+			await this.importer.processFile({
+				reportNoteSuccess: () => {},
+				reportFailed: () => {},
+			} as any, '<div></div>', page);
 		}
 	}
 }
