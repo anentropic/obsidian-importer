@@ -4,8 +4,12 @@
  * These extensions add Obsidian-specific methods to native prototypes
  * that are available in the Obsidian runtime but not in the test environment.
  * 
- * Use setupObsidianPolyfills() and teardownObsidianPolyfills() in beforeEach/afterEach
- * or beforeAll/afterAll hooks to properly manage the polyfill lifecycle.
+ * Use setupObsidianPolyfills() and teardownObsidianPolyfills() in beforeAll/afterAll
+ * hooks to properly manage the polyfill lifecycle at the test module level.
+ * 
+ * Note: This implementation assumes test files are run sequentially (vitest default).
+ * If running test files concurrently, ensure only one test file uses these polyfills
+ * at a time, or consider using beforeEach/afterEach for test-level isolation instead.
  */
 
 interface PolyfillState {
