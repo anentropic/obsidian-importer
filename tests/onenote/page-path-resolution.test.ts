@@ -497,9 +497,6 @@ describe('OneNote Page Path Resolution', () => {
 				});
 			}
 			
-			// The bug: Page 1 goes to correct folder, Pages 2 & 3 go to vault root
-			console.log('Pages processed:', pagesProcessed);
-			
 			// EXPECTED behavior (should fail with current buggy implementation):
 			// All pages should be saved to the same folder
 			expect(pagesProcessed[0].savedTo).toBe(outputPath);  // PASSES: Page 1 goes to correct folder
