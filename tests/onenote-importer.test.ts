@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -6,28 +6,7 @@ import os from 'node:os';
 import { Notice } from 'obsidian';
 import type { ImporterData } from '../src/main';
 import { OneNoteImporter } from '../src/formats/onenote';
-
-// Polyfills to match Obsidian's runtime helpers
-if (!(Array.prototype as any).contains) {
-	// eslint-disable-next-line no-extend-native
-	(Array.prototype as any).contains = function(value: any) {
-		return this.includes(value);
-	};
-}
-
-if (!(String.prototype as any).contains) {
-	// eslint-disable-next-line no-extend-native
-	(String.prototype as any).contains = function(value: string) {
-		return this.includes(value);
-	};
-}
-
-if (!(HTMLElement.prototype as any).findAll) {
-	// eslint-disable-next-line no-extend-native
-	(HTMLElement.prototype as any).findAll = function(selector: string) {
-		return Array.from(this.querySelectorAll(selector));
-	};
-}
+import { setupObsidianPolyfills, teardownObsidianPolyfills } from './setup-polyfills';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
@@ -92,6 +71,14 @@ const buildMultipartContent = (html: string): string => {
 
 describe('OneNoteImporter integration', () => {
 	let tmpRoot: string;
+
+	beforeAll(() => {
+		setupObsidianPolyfills();
+	});
+
+	afterAll(() => {
+		teardownObsidianPolyfills();
+	});
 
 	beforeEach(() => {
 		Notice.messages = [];
