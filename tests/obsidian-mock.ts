@@ -181,7 +181,10 @@ export const htmlToMarkdown = (element: HTMLElement): string => {
 };
 
 export const requestUrl = vi.fn(async () => ({ json: { access_token: 'mock-access', refresh_token: 'mock-refresh' } }));
-export const moment = ((_: any) => ({ format: () => '2023-01-01-000000' })) as any;
+
+export const MOCK_DATE_STRING = '2023-01-01-000000';
+
+export const moment = ((_: any) => ({ format: () => MOCK_DATE_STRING })) as any;
 moment.utc = (_: any) => ({ format: () => '2023-01-01' });
 
 export default {
