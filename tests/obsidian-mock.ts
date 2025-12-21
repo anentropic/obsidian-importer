@@ -76,10 +76,14 @@ export class Vault {
 		const withExt = extension ? `${basename}.${extension}` : basename;
 		let candidate = directory ? path.posix.join(directory, withExt) : withExt;
 		let counter = 1;
-		while (fs.existsSync(path.join(this.root, candidate))) {
+		const maxIterations = 10000;
+		while (fs.existsSync(path.join(this.root, candidate)) && counter < maxIterations) {
 			const numbered = `${basename} ${counter}${extension ? `.${extension}` : ''}`;
 			candidate = directory ? path.posix.join(directory, numbered) : numbered;
 			counter++;
+		}
+		if (counter >= maxIterations) {
+			throw new Error(`Could not find available path for ${basename} after ${maxIterations} iterations`);
 		}
 		return candidate;
 	}
