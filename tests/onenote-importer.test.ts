@@ -203,10 +203,10 @@ describe('OneNoteImporter integration', () => {
 		await importer.import(progress as any);
 
 		const notePath = path.join(root, 'OneNote', 'Work Notebook', 'Attachments', 'Page With Attachments.md');
-		const md = await fsp.readFile(notePath, 'utf8');
 		const attachmentPath = path.join(root, 'OneNote', 'report.pdf');
 		const imagePath = path.join(root, 'OneNote', `Exported image ${MOCK_DATE_STRING}-0.png`);
 
+		const md = await fsp.readFile(notePath, 'utf8');
 		expect(fs.existsSync(attachmentPath)).toBe(true);
 		expect(fs.existsSync(imagePath)).toBe(true);
 		expect(md).toContain('![Found via OCR]');
