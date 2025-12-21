@@ -107,12 +107,12 @@ If all tests are failing with file not found errors, try the following steps:
 
 ### Common Issues
 
-- **Node.js v24+**: The project uses `@types/node` 16.6.2 which is not compatible with Node.js v24. Use Node.js v20 LTS instead.
+- **Unsupported Node.js version**: The tests are compatible with Node.js 16-20. Node.js v24+ is not supported due to incompatibility with `@types/node` 16.6.2. Use Node.js v20 LTS (recommended).
 - **macOS/Linux**: If you get permission denied errors, check that the temp directory is writable
-- **Windows**: Path separators might cause issues - ensure you're using a supported Node.js version
+- **Windows**: Path separators might cause issues - ensure you're using a supported Node.js version (16-20)
 - **CI vs Local**: The tests use the system's temp directory, which may behave differently locally vs in CI
 
 If you continue to have issues, please provide:
 1. Your Node.js version (`node --version`)
 2. Your operating system (macOS version, etc.)
-3. The full test output showing the diagnostic information
+3. The full test output
