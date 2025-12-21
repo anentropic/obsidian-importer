@@ -7,6 +7,7 @@ import { Notice } from 'obsidian';
 import type { ImporterData } from '../src/main';
 import { OneNoteImporter } from '../src/formats/onenote';
 import { setupObsidianPolyfills, teardownObsidianPolyfills } from './setup-polyfills';
+import { MOCK_DATE_STRING } from './obsidian-mock';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
@@ -203,7 +204,7 @@ describe('OneNoteImporter integration', () => {
 		const notePath = path.join(root, 'OneNote', 'Work Notebook', 'Attachments', 'Page With Attachments.md');
 		const md = await fsp.readFile(notePath, 'utf8');
 		const attachmentPath = path.join(root, 'OneNote', 'report.pdf');
-		const imagePath = path.join(root, 'OneNote', 'Exported image 2023-01-01-000000-0.png');
+		const imagePath = path.join(root, 'OneNote', `Exported image ${MOCK_DATE_STRING}-0.png`);
 
 		expect(fs.existsSync(attachmentPath)).toBe(true);
 		expect(fs.existsSync(imagePath)).toBe(true);
