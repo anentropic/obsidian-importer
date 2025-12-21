@@ -447,6 +447,7 @@ describe('OneNoteImporter integration', () => {
 				},
 			],
 		};
+		const [firstPage, secondPage] = pagesResponse.value;
 
 		requestMock.addHandler(async (url: string | URL) => {
 			const target = url.toString();
@@ -462,22 +463,23 @@ describe('OneNoteImporter integration', () => {
 			return new Response('not found', { status: 404 });
 		});
 
-		const sectionPath = path.posix.join('OneNote', 'Stale Folder Notebook', 'Section With Many Pages');
-		const realGetAbstractFileByPath = importer.vault.getAbstractFileByPath.bind(importer.vault);
+		const sectionPath = path.join('OneNote', 'Stale Folder Notebook', 'Section With Many Pages');
+		const originalGetAbstractFileByPath = importer.vault.getAbstractFileByPath.bind(importer.vault);
 		let returnNullOnce = true;
-		vi.spyOn(importer.vault, 'getAbstractFileByPath').mockImplementation((relPath: string) => {
+		const mockedGetAbstractFileByPath = (relPath: string) => {
 			if (relPath === sectionPath && returnNullOnce) {
 				returnNullOnce = false;
 				return null;
 			}
-			return realGetAbstractFileByPath(relPath);
-		});
+			return originalGetAbstractFileByPath(relPath);
+		};
+		vi.spyOn(importer.vault, 'getAbstractFileByPath').mockImplementation(mockedGetAbstractFileByPath);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
 
-		const notePathFirst = path.join(root, sectionPath, 'First Page.md');
-		const notePathSecond = path.join(root, sectionPath, 'Second Page.md');
+		const notePathFirst = path.join(root, sectionPath, `${firstPage.title}.md`);
+		const notePathSecond = path.join(root, sectionPath, `${secondPage.title}.md`);
 
 		const mdFirst = await fsp.readFile(notePathFirst, 'utf8');
 		const mdSecond = await fsp.readFile(notePathSecond, 'utf8');
@@ -485,6 +487,9 @@ describe('OneNoteImporter integration', () => {
 		expect(mdFirst).toBe('First page content');
 		expect(mdSecond).toBe('Second page content');
 		expect(progress.reportFailed).not.toHaveBeenCalled();
-		expect(fs.existsSync(path.join(root, 'OneNote', 'Second Page.md'))).toBe(false);
+		const misplacedFirstPath = path.join(root, 'OneNote', `${firstPage.title}.md`);
+		const misplacedSecondPath = path.join(root, 'OneNote', `${secondPage.title}.md`);
+		expect(fs.existsSync(misplacedFirstPath)).toBe(false);
+		expect(fs.existsSync(misplacedSecondPath)).toBe(false);
 	});
 });
