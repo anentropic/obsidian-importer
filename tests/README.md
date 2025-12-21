@@ -1,10 +1,95 @@
 # Testing Guide
 
+## Prerequisites
+
+- **Node.js**: Version 16-20 (Node.js v20 LTS recommended)
+- **npm**: Comes with Node.js
+
+### Installing Node.js
+
+If you don't have Node.js installed or need to switch versions:
+
+**Using nvm (recommended):**
+```bash
+# Install nvm (if not already installed)
+curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.0/install.sh | bash
+
+# Install Node.js 20 LTS
+nvm install 20
+nvm use 20
+
+# Verify installation
+node --version  # Should show v20.x.x
+```
+
+**Direct installation:**
+- Download from [nodejs.org](https://nodejs.org/) (choose the LTS version)
+
+## Setup
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/anentropic/obsidian-importer.git
+   cd obsidian-importer
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   npm install
+   ```
+
 ## Running Tests
 
+### Run all tests:
 ```bash
 npm test
 ```
+
+### Run tests in watch mode (auto-rerun on file changes):
+```bash
+npx vitest
+```
+
+### Run tests with verbose output:
+```bash
+npm test -- --reporter=verbose
+```
+
+### Run a specific test file:
+```bash
+npx vitest tests/onenote-importer.test.ts
+```
+
+### Run tests with coverage:
+```bash
+npx vitest --coverage
+```
+
+## Understanding Test Output
+
+The tests use Vitest and include automatic diagnostic output when failures occur:
+
+```
+✓ tests/onenote-importer.test.ts > OneNoteImporter integration > imports a simple page
+✗ tests/onenote-importer.test.ts > OneNoteImporter integration > downloads attachments
+  
+  Directory tree:
+  [DIR] OneNote
+    [DIR] Work Notebook
+      [DIR] Attachments
+        [FILE] Page With Attachments.md
+  Expected paths:
+    [0]: /tmp/.../OneNote/Work Notebook/Attachments/Page.md
+    [1]: /tmp/.../OneNote/report.pdf
+  Progress reports:
+    reportNoteSuccess calls: [['Page With Attachments']]
+    reportFailed calls: []
+```
+
+This diagnostic output helps identify:
+- What files were actually created
+- What files were expected but missing
+- Whether the import process succeeded or failed
 
 ## Troubleshooting
 
