@@ -56,6 +56,34 @@ const createProgress = () => {
 	};
 };
 
+const debugTestFailure = async (root: string, expectedPaths: string[], progress: any) => {
+	const listDir = async (dir: string, prefix = '', depth = 0): Promise<string> => {
+		if (depth > 10) return `${prefix}[max depth reached]\n`;
+		try {
+			const items = await fsp.readdir(dir, { withFileTypes: true });
+			let result = '';
+			for (const item of items) {
+				result += `${prefix}${item.isDirectory() ? '[DIR] ' : '[FILE]'} ${item.name}\n`;
+				if (item.isDirectory()) {
+					result += await listDir(path.join(dir, item.name), prefix + '  ', depth + 1);
+				}
+			}
+			return result;
+		} catch (e) {
+			return `${prefix}Error reading directory: ${e}\n`;
+		}
+	};
+
+	const dirTree = await listDir(root);
+	console.log('Directory tree:');
+	console.log(dirTree);
+	console.log('Expected paths:');
+	expectedPaths.forEach((p, i) => console.log(`  [${i}]:`, p));
+	console.log('Progress reports:');
+	console.log('  reportNoteSuccess calls:', progress.reportNoteSuccess.mock.calls);
+	console.log('  reportFailed calls:', progress.reportFailed.mock.calls);
+};
+
 const buildMultipartContent = (html: string): string => {
 	const boundary = '--batch_12345';
 	return [
@@ -386,34 +414,9 @@ describe('OneNoteImporter integration', () => {
 		const notePathSG1 = path.join(root, 'OneNote', 'Notebook With Groups', 'My Section Group', 'Grouped Section 1', 'Page SG1.md');
 		const notePathSG2 = path.join(root, 'OneNote', 'Notebook With Groups', 'My Section Group', 'Grouped Section 2', 'Page SG2.md');
 		
-		// Helper to list directory contents for debugging
-		const listDir = async (dir: string, prefix = ''): Promise<string> => {
-			try {
-				const items = await fsp.readdir(dir, { withFileTypes: true });
-				let result = '';
-				for (const item of items) {
-					result += `${prefix}${item.isDirectory() ? '[DIR] ' : '[FILE]'} ${item.name}\n`;
-					if (item.isDirectory()) {
-						result += await listDir(path.join(dir, item.name), prefix + '  ');
-					}
-				}
-				return result;
-			} catch (e) {
-				return `${prefix}Error reading directory: ${e}\n`;
-			}
-		};
-
 		// If files don't exist, print diagnostics
 		if (!fs.existsSync(notePathSG1) || !fs.existsSync(notePathSG2)) {
-			const dirTree = await listDir(root);
-			console.log('Directory tree:');
-			console.log(dirTree);
-			console.log('Expected paths:');
-			console.log('  SG1:', notePathSG1);
-			console.log('  SG2:', notePathSG2);
-			console.log('Progress reports:');
-			console.log('  reportNoteSuccess calls:', progress.reportNoteSuccess.mock.calls);
-			console.log('  reportFailed calls:', progress.reportFailed.mock.calls);
+			await debugTestFailure(root, [notePathSG1, notePathSG2], progress);
 		}
 		
 		const mdSG1 = await fsp.readFile(notePathSG1, 'utf8');
