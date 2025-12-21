@@ -4,11 +4,11 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import os from 'node:os';
 import { Notice } from 'obsidian';
-import type { ImporterData } from '../src/main';
-import { OneNoteImporter } from '../src/formats/onenote';
-import { setupObsidianPolyfills, teardownObsidianPolyfills } from './setup-polyfills';
-import { MOCK_DATE_STRING } from './obsidian-mock';
-import { createRequestMock } from './request-mock';
+import type { ImporterData } from '../../src/main';
+import { OneNoteImporter } from '../../src/formats/onenote';
+import { setupObsidianPolyfills, teardownObsidianPolyfills } from '../setup-polyfills';
+import { MOCK_DATE_STRING } from '../obsidian-mock';
+import { createRequestMock } from '../request-mock';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
@@ -144,7 +144,8 @@ describe('OneNoteImporter integration', () => {
 
 		const notePath = path.join(root, 'OneNote', 'Test Notebook', 'Section A', 'My Note.md');
 		const md = await fsp.readFile(notePath, 'utf8');
-		expect(md).toContain('Hello OneNote');
+		const expected = await fsp.readFile(path.join(__dirname, 'expected-simple-page.md'), 'utf8');
+		expect(md).toBe(expected);
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('My Note');
 	});
 
@@ -207,9 +208,10 @@ describe('OneNoteImporter integration', () => {
 		const imagePath = path.join(root, 'OneNote', `Exported image ${MOCK_DATE_STRING}-0.png`);
 
 		const md = await fsp.readFile(notePath, 'utf8');
+		const expected = await fsp.readFile(path.join(__dirname, 'expected-attachments.md'), 'utf8');
 		expect(fs.existsSync(attachmentPath)).toBe(true);
 		expect(fs.existsSync(imagePath)).toBe(true);
-		expect(md).toContain('![Found via OCR]');
+		expect(md).toBe(expected);
 		expect(progress.reportAttachmentSuccess).toHaveBeenCalledTimes(2);
 	});
 
@@ -295,13 +297,16 @@ describe('OneNoteImporter integration', () => {
 		const notePathA2 = path.join(root, 'OneNote', 'Multi-Section Notebook', 'First Section', 'Page A2.md');
 		const mdA1 = await fsp.readFile(notePathA1, 'utf8');
 		const mdA2 = await fsp.readFile(notePathA2, 'utf8');
-		expect(mdA1).toContain('Content from first section');
-		expect(mdA2).toContain('Content from first section');
+		const expectedA1 = await fsp.readFile(path.join(__dirname, 'expected-multi-section-a1.md'), 'utf8');
+		const expectedA2 = await fsp.readFile(path.join(__dirname, 'expected-multi-section-a2.md'), 'utf8');
+		expect(mdA1).toBe(expectedA1);
+		expect(mdA2).toBe(expectedA2);
 
 		// Verify pages from second section
 		const notePathB1 = path.join(root, 'OneNote', 'Multi-Section Notebook', 'Second Section', 'Page B1.md');
 		const mdB1 = await fsp.readFile(notePathB1, 'utf8');
-		expect(mdB1).toContain('Content from second section');
+		const expectedB1 = await fsp.readFile(path.join(__dirname, 'expected-multi-section-b1.md'), 'utf8');
+		expect(mdB1).toBe(expectedB1);
 
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page A1');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page A2');
@@ -387,8 +392,10 @@ describe('OneNoteImporter integration', () => {
 		const notePathSG2 = path.join(root, 'OneNote', 'Notebook With Groups', 'My Section Group', 'Grouped Section 2', 'Page SG2.md');
 		const mdSG1 = await fsp.readFile(notePathSG1, 'utf8');
 		const mdSG2 = await fsp.readFile(notePathSG2, 'utf8');
-		expect(mdSG1).toContain('Content from grouped section 1');
-		expect(mdSG2).toContain('Content from grouped section 2');
+		const expectedSG1 = await fsp.readFile(path.join(__dirname, 'expected-section-group-sg1.md'), 'utf8');
+		const expectedSG2 = await fsp.readFile(path.join(__dirname, 'expected-section-group-sg2.md'), 'utf8');
+		expect(mdSG1).toBe(expectedSG1);
+		expect(mdSG2).toBe(expectedSG2);
 
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page SG1');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page SG2');

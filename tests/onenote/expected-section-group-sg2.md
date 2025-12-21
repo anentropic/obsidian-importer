@@ -1,0 +1,1 @@
+Content from grouped section 2
