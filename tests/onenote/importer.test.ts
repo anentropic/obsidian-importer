@@ -405,4 +405,86 @@ describe('OneNoteImporter integration', () => {
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page SG1');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('Page SG2');
 	});
+
+	it('keeps all pages inside their section even if folder lookup is initially null', async () => {
+		const { importer, root } = await createHarness();
+		tmpRoot = root;
+		importer.selectedIds = ['section-stale-folder'];
+		importer.notebooks = [
+			{
+				id: 'notebook-stale',
+				displayName: 'Stale Folder Notebook',
+				sections: [
+					{ id: 'section-stale-folder', displayName: 'Section With Many Pages', pages: [] },
+				],
+			},
+		] as any;
+
+		const htmlBodyFirst = '<html><body><p>First page content</p></body></html>';
+		const htmlBodySecond = '<html><body><p>Second page content</p></body></html>';
+		const contentFirst = buildMultipartContent(htmlBodyFirst);
+		const contentSecond = buildMultipartContent(htmlBodySecond);
+
+		const pagesResponse = {
+			value: [
+				{
+					id: 'page-stale-1',
+					title: 'First Page',
+					createdDateTime: '2023-01-01T00:00:00Z',
+					lastModifiedDateTime: '2023-01-02T00:00:00Z',
+					level: 0,
+					order: 0,
+					contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/page-stale-1/content?includeInkML=true',
+				},
+				{
+					id: 'page-stale-2',
+					title: 'Second Page',
+					createdDateTime: '2023-01-01T00:00:00Z',
+					lastModifiedDateTime: '2023-01-02T00:00:00Z',
+					level: 0,
+					order: 1,
+					contentUrl: 'https://graph.microsoft.com/v1.0/me/onenote/pages/page-stale-2/content?includeInkML=true',
+				},
+			],
+		};
+
+		requestMock.addHandler(async (url: string | URL) => {
+			const target = url.toString();
+			if (target.includes('/sections/section-stale-folder/pages')) {
+				return new Response(JSON.stringify(pagesResponse), { status: 200 });
+			}
+			if (target.includes('/pages/page-stale-1/content')) {
+				return new Response(contentFirst, { status: 200 });
+			}
+			if (target.includes('/pages/page-stale-2/content')) {
+				return new Response(contentSecond, { status: 200 });
+			}
+			return new Response('not found', { status: 404 });
+		});
+
+		const sectionPath = path.posix.join('OneNote', 'Stale Folder Notebook', 'Section With Many Pages');
+		const realGetAbstractFileByPath = importer.vault.getAbstractFileByPath.bind(importer.vault);
+		let returnNullOnce = true;
+		vi.spyOn(importer.vault, 'getAbstractFileByPath').mockImplementation((relPath: string) => {
+			if (relPath === sectionPath && returnNullOnce) {
+				returnNullOnce = false;
+				return null;
+			}
+			return realGetAbstractFileByPath(relPath);
+		});
+
+		const progress = createProgress();
+		await importer.import(progress as any);
+
+		const notePathFirst = path.join(root, sectionPath, 'First Page.md');
+		const notePathSecond = path.join(root, sectionPath, 'Second Page.md');
+
+		const mdFirst = await fsp.readFile(notePathFirst, 'utf8');
+		const mdSecond = await fsp.readFile(notePathSecond, 'utf8');
+
+		expect(mdFirst).toBe('First page content');
+		expect(mdSecond).toBe('Second page content');
+		expect(progress.reportFailed).not.toHaveBeenCalled();
+		expect(fs.existsSync(path.join(root, 'OneNote', 'Second Page.md'))).toBe(false);
+	});
 });
