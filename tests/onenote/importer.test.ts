@@ -464,16 +464,17 @@ describe('OneNoteImporter integration', () => {
 		});
 
 		const sectionPath = path.join('OneNote', 'Stale Folder Notebook', 'Section With Many Pages');
-		const originalGetAbstractFileByPath = importer.vault.getAbstractFileByPath.bind(importer.vault);
-		let returnNullOnce = true;
-		const mockedGetAbstractFileByPath = (relPath: string) => {
-			if (relPath === sectionPath && returnNullOnce) {
-				returnNullOnce = false;
-				return null;
+		const originalExists = importer.vault.adapter.exists;
+		let staleExists = true;
+		importer.vault.adapter.exists = async (relPath: string) => {
+			if (relPath === sectionPath && staleExists) {
+				// Simulate a stale adapter cache reporting the folder exists
+				// even though the vault index cannot resolve it yet.
+				staleExists = false;
+				return true;
 			}
-			return originalGetAbstractFileByPath(relPath);
+			return originalExists(relPath);
 		};
-		vi.spyOn(importer.vault, 'getAbstractFileByPath').mockImplementation(mockedGetAbstractFileByPath);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
