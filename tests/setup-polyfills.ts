@@ -30,4 +30,3 @@ export function setupObsidianPolyfills(): void {
 
 // Automatically setup polyfills when this file is imported as a setup file
 setupObsidianPolyfills();
-
