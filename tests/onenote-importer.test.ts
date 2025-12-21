@@ -171,6 +171,12 @@ describe('OneNoteImporter integration', () => {
 		await importer.import(progress as any);
 
 		const notePath = path.join(root, 'OneNote', 'Test Notebook', 'Section A', 'My Note.md');
+		
+		// If file doesn't exist, print diagnostics
+		if (!fs.existsSync(notePath)) {
+			await debugTestFailure(root, [notePath], progress);
+		}
+		
 		const md = await fsp.readFile(notePath, 'utf8');
 		expect(md).toContain('Hello OneNote');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('My Note');
@@ -231,10 +237,15 @@ describe('OneNoteImporter integration', () => {
 		await importer.import(progress as any);
 
 		const notePath = path.join(root, 'OneNote', 'Work Notebook', 'Attachments', 'Page With Attachments.md');
-		const md = await fsp.readFile(notePath, 'utf8');
 		const attachmentPath = path.join(root, 'OneNote', 'report.pdf');
 		const imagePath = path.join(root, 'OneNote', `Exported image ${MOCK_DATE_STRING}-0.png`);
 
+		// If files don't exist, print diagnostics
+		if (!fs.existsSync(notePath) || !fs.existsSync(attachmentPath) || !fs.existsSync(imagePath)) {
+			await debugTestFailure(root, [notePath, attachmentPath, imagePath], progress);
+		}
+
+		const md = await fsp.readFile(notePath, 'utf8');
 		expect(fs.existsSync(attachmentPath)).toBe(true);
 		expect(fs.existsSync(imagePath)).toBe(true);
 		expect(md).toContain('![Found via OCR]');
