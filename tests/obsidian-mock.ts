@@ -82,7 +82,7 @@ export class Vault {
 			candidate = directory ? path.posix.join(directory, numbered) : numbered;
 			counter++;
 		}
-		if (counter === Vault.MAX_PATH_ITERATIONS) {
+		if (counter >= Vault.MAX_PATH_ITERATIONS) {
 			throw new Error(`Could not find available path for ${basename} after ${Vault.MAX_PATH_ITERATIONS} iterations`);
 		}
 		return candidate;
