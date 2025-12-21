@@ -1,0 +1,1 @@
+![Found via OCR](OneNote/Exported%20image%202023-01-01-000000-0.png)
