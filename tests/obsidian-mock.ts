@@ -33,6 +33,7 @@ export class TFile extends TAbstractFile {
 export class Vault {
 	root: string;
 	adapter: { exists: (relPath: string) => Promise<boolean> };
+	private static readonly MAX_PATH_ITERATIONS = 10000;
 
 	constructor(root: string) {
 		this.root = root;
@@ -76,10 +77,13 @@ export class Vault {
 		const withExt = extension ? `${basename}.${extension}` : basename;
 		let candidate = directory ? path.posix.join(directory, withExt) : withExt;
 		let counter = 1;
-		while (fs.existsSync(path.join(this.root, candidate))) {
+		while (fs.existsSync(path.join(this.root, candidate)) && counter < Vault.MAX_PATH_ITERATIONS) {
 			const numbered = `${basename} ${counter}${extension ? `.${extension}` : ''}`;
 			candidate = directory ? path.posix.join(directory, numbered) : numbered;
 			counter++;
+		}
+		if (counter >= Vault.MAX_PATH_ITERATIONS) {
+			throw new Error(`Could not find available path for ${basename} after ${Vault.MAX_PATH_ITERATIONS} iterations`);
 		}
 		return candidate;
 	}
