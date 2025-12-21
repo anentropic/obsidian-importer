@@ -7,28 +7,6 @@ import { Notice } from 'obsidian';
 import type { ImporterData } from '../src/main';
 import { OneNoteImporter } from '../src/formats/onenote';
 
-// Polyfills to match Obsidian's runtime helpers
-if (!(Array.prototype as any).contains) {
-	// eslint-disable-next-line no-extend-native
-	(Array.prototype as any).contains = function(value: any) {
-		return this.includes(value);
-	};
-}
-
-if (!(String.prototype as any).contains) {
-	// eslint-disable-next-line no-extend-native
-	(String.prototype as any).contains = function(value: string) {
-		return this.includes(value);
-	};
-}
-
-if (!(HTMLElement.prototype as any).findAll) {
-	// eslint-disable-next-line no-extend-native
-	(HTMLElement.prototype as any).findAll = function(selector: string) {
-		return Array.from(this.querySelectorAll(selector));
-	};
-}
-
 
 class TestableOneNoteImporter extends OneNoteImporter {
 	init(): void {
