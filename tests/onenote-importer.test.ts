@@ -12,7 +12,7 @@ import { createRequestMock } from './request-mock';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
-	init(): void {
+	async init(): Promise<void> {
 		// Skip UI setup; the tests set state directly
 		this.outputLocation = 'OneNote';
 	}
@@ -31,7 +31,7 @@ const createHarness = async (): Promise<TestHarness> => {
 	const vault = new Vault(root);
 	// @ts-ignore mocked class
 	const fileManager = new (await import('obsidian')).FileManager(vault);
-	const app = new App(vault, fileManager);
+	const app = new (App as any)(vault, fileManager);
 	const pluginData: ImporterData = { importers: { onenote: { previouslyImportedIDs: [] } } };
 	const plugin = {
 		loadData: vi.fn().mockResolvedValue(pluginData),
@@ -84,7 +84,7 @@ describe('OneNoteImporter integration', () => {
 	});
 
 	beforeEach(() => {
-		Notice.messages = [];
+		(Notice as any).messages = [];
 		requestMock.start();
 	});
 
@@ -194,7 +194,7 @@ describe('OneNoteImporter integration', () => {
 				return new Response(content, { status: 200 });
 			}
 			if (target.includes('report.pdf') || target.includes('photo')) {
-				return new Response(binaryBuffer, { status: 200 });
+				return new Response(new Uint8Array(binaryBuffer), { status: 200 });
 			}
 			return new Response('not found', { status: 404 });
 		});

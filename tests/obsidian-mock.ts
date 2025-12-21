@@ -63,7 +63,7 @@ export class Vault {
 	async createBinary(relPath: string, data: ArrayBuffer): Promise<TFile> {
 		const absolute = path.join(this.root, relPath);
 		await fsp.mkdir(path.dirname(absolute), { recursive: true });
-		await fsp.writeFile(absolute, Buffer.from(data));
+		await fsp.writeFile(absolute, new Uint8Array(data));
 		const parent = new TFolder(path.posix.dirname(relPath));
 		return new TFile(relPath, parent);
 	}
