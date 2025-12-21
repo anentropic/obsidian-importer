@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
+import { describe, it, expect, vi, beforeEach, afterEach, beforeAll, afterAll } from 'vitest';
 import path from 'node:path';
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
@@ -6,6 +6,7 @@ import os from 'node:os';
 import { Notice } from 'obsidian';
 import type { ImporterData } from '../src/main';
 import { OneNoteImporter } from '../src/formats/onenote';
+import { setupObsidianPolyfills, teardownObsidianPolyfills } from './setup-polyfills';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
@@ -70,6 +71,14 @@ const buildMultipartContent = (html: string): string => {
 
 describe('OneNoteImporter integration', () => {
 	let tmpRoot: string;
+
+	beforeAll(() => {
+		setupObsidianPolyfills();
+	});
+
+	afterAll(() => {
+		teardownObsidianPolyfills();
+	});
 
 	beforeEach(() => {
 		Notice.messages = [];
