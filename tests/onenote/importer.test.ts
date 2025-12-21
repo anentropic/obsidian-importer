@@ -230,9 +230,11 @@ describe('OneNoteImporter integration', () => {
 			},
 		] as any;
 
-		const htmlBodyA = '<html><body><p>Content from first section</p></body></html>';
-		const contentA = buildMultipartContent(htmlBodyA);
-		const htmlBodyB = '<html><body><p>Content from second section</p></body></html>';
+		const htmlBodyA1 = '<html><body><p>Content from first section, first page</p></body></html>';
+		const contentA1 = buildMultipartContent(htmlBodyA1);
+		const htmlBodyA2 = '<html><body><p>Content from first section, second page</p></body></html>';
+		const contentA2 = buildMultipartContent(htmlBodyA2);
+		const htmlBodyB = '<html><body><p>Content from second section, first page</p></body></html>';
 		const contentB = buildMultipartContent(htmlBodyB);
 
 		const pagesResponseA = {
@@ -280,8 +282,11 @@ describe('OneNoteImporter integration', () => {
 			if (target.includes('/sections/section-b/pages')) {
 				return new Response(JSON.stringify(pagesResponseB), { status: 200 });
 			}
-			if (target.includes('/pages/page-a1/content') || target.includes('/pages/page-a2/content')) {
-				return new Response(contentA, { status: 200 });
+			if (target.includes('/pages/page-a1/content')) {
+				return new Response(contentA1, { status: 200 });
+			}
+			if (target.includes('/pages/page-a2/content')) {
+				return new Response(contentA2, { status: 200 });
 			}
 			if (target.includes('/pages/page-b1/content')) {
 				return new Response(contentB, { status: 200 });
@@ -334,9 +339,9 @@ describe('OneNoteImporter integration', () => {
 			},
 		] as any;
 
-		const htmlBodySG1 = '<html><body><p>Content from grouped section 1</p></body></html>';
+		const htmlBodySG1 = '<html><body><p>Content from grouped section 1, first page</p></body></html>';
 		const contentSG1 = buildMultipartContent(htmlBodySG1);
-		const htmlBodySG2 = '<html><body><p>Content from grouped section 2</p></body></html>';
+		const htmlBodySG2 = '<html><body><p>Content from grouped section 2, first page</p></body></html>';
 		const contentSG2 = buildMultipartContent(htmlBodySG2);
 
 		const pagesResponseSG1 = {

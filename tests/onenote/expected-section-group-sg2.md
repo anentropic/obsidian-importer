@@ -1,1 +1,1 @@
-Content from grouped section 2
+Content from grouped section 2, first page
