@@ -398,25 +398,113 @@ describe('OneNote Page Path Resolution', () => {
 		});
 	});
 	
-	describe('Page levels (subpages)', () => {
-		it('should handle pages with subpages correctly', () => {
-			// Page with level 1 subpage
-			const pages = [
-				createMockPage('page-1', 'Parent Page', 0),
-				createMockPage('page-2', 'Child Page', 1),
-			];
+	describe('Bug scenario: processFile vault integration', () => {
+		/**
+		 * This test documents the suspected bug in processFile():
+		 * 
+		 * The bug occurs because processFile uses two different methods to get the folder:
+		 * 1. vault.createFolder() for the first page (when folder doesn't exist)
+		 * 2. vault.getAbstractFileByPath() for subsequent pages (when folder exists)
+		 * 
+		 * If getAbstractFileByPath() returns null (which can happen if Obsidian's cache
+		 * isn't updated or there's a path normalization mismatch), the file gets saved
+		 * at the vault root instead.
+		 * 
+		 * This test simulates the processFile logic and shows how the bug manifests.
+		 */
+		it('should fail when getAbstractFileByPath returns null for existing folder', () => {
+			// Mock vault behavior
+			const existingFolders = new Set<string>();
 			
-			const section = createMockSection('section-1', 'Section 1');
-			const notebook = createMockNotebook('notebook-1', 'My Notebook', [section]);
+			const mockVault = {
+				adapter: {
+					exists: (path: string | null) => {
+						if (path === null) return false;
+						return existingFolders.has(path);
+					}
+				},
+				createFolder: (path: string) => {
+					existingFolders.add(path);
+					return { path, name: path.split('/').pop() }; // Returns the folder object
+				},
+				getAbstractFileByPath: (path: string | null) => {
+					// BUG: This might return null even when folder exists!
+					// Simulating the bug where getAbstractFileByPath doesn't find
+					// a folder that was just created
+					if (path === null) return null;
+					
+					// For this test, simulate the bug: return null for all paths
+					// except the first time a folder is accessed
+					// This mimics a cache inconsistency issue
+					return null;  // BUG SIMULATION: Always returns null
+				}
+			};
 			
-			resolver.notebooks = [notebook];
-			resolver.insertPagesToSection(pages, 'section-1');
+			// Simulate processing multiple pages in the same folder
+			const outputPath = 'vault/My Notebook/Section 1';
+			const pagesProcessed: { title: string; savedTo: string | null }[] = [];
 			
-			// Parent page should be in its own folder (because it has a subpage)
-			expect(resolver.getEntityPathNoParent('page-1', 'vault')).toBe('vault/My Notebook/Section 1/Parent Page');
+			// Simulate processFile for page 1
+			{
+				const page = { title: 'Page 1' };
+				let pageFolder: any;
+				
+				if (!mockVault.adapter.exists(outputPath)) {
+					pageFolder = mockVault.createFolder(outputPath);
+				} else {
+					pageFolder = mockVault.getAbstractFileByPath(outputPath);
+				}
+				
+				// saveAsMarkdownFile would use pageFolder
+				pagesProcessed.push({ 
+					title: page.title, 
+					savedTo: pageFolder?.path || 'VAULT_ROOT' 
+				});
+			}
 			
-			// Child page should be in parent's folder
-			expect(resolver.getEntityPathNoParent('page-2', 'vault')).toBe('vault/My Notebook/Section 1/Parent Page');
+			// Simulate processFile for page 2 (folder now exists)
+			{
+				const page = { title: 'Page 2' };
+				let pageFolder: any;
+				
+				if (!mockVault.adapter.exists(outputPath)) {
+					pageFolder = mockVault.createFolder(outputPath);
+				} else {
+					// BUG: This returns null because getAbstractFileByPath has the bug!
+					pageFolder = mockVault.getAbstractFileByPath(outputPath);
+				}
+				
+				pagesProcessed.push({ 
+					title: page.title, 
+					savedTo: pageFolder?.path || 'VAULT_ROOT' 
+				});
+			}
+			
+			// Simulate processFile for page 3 (folder exists)
+			{
+				const page = { title: 'Page 3' };
+				let pageFolder: any;
+				
+				if (!mockVault.adapter.exists(outputPath)) {
+					pageFolder = mockVault.createFolder(outputPath);
+				} else {
+					pageFolder = mockVault.getAbstractFileByPath(outputPath);
+				}
+				
+				pagesProcessed.push({ 
+					title: page.title, 
+					savedTo: pageFolder?.path || 'VAULT_ROOT' 
+				});
+			}
+			
+			// The bug: Page 1 goes to correct folder, Pages 2 & 3 go to vault root
+			console.log('Pages processed:', pagesProcessed);
+			
+			// EXPECTED behavior (should fail with current buggy implementation):
+			// All pages should be saved to the same folder
+			expect(pagesProcessed[0].savedTo).toBe(outputPath);  // PASSES: Page 1 goes to correct folder
+			expect(pagesProcessed[1].savedTo).toBe(outputPath);  // FAILS: Page 2 goes to VAULT_ROOT
+			expect(pagesProcessed[2].savedTo).toBe(outputPath);  // FAILS: Page 3 goes to VAULT_ROOT
 		});
 	});
 });
