@@ -50,8 +50,8 @@ export class RequestMock {
 							headers: response.headers,
 						};
 						
-						// Read the body and create a new Response
-						const body = await response.arrayBuffer();
+						// Clone and read the body to avoid consuming the original stream
+						const body = await response.clone().arrayBuffer();
 						const mockResponse = new Response(body, responseInit);
 						
 						// Respond with the mocked response using controller
@@ -60,7 +60,8 @@ export class RequestMock {
 					}
 				}
 				catch (error) {
-					// Handler threw an error, continue to next handler
+					// Handler threw an error or returned a non-matching response,
+					// continue to next handler to allow fallback behavior
 					continue;
 				}
 			}
