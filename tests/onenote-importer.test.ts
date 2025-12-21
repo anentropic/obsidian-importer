@@ -8,6 +8,7 @@ import type { ImporterData } from '../src/main';
 import { OneNoteImporter } from '../src/formats/onenote';
 import { setupObsidianPolyfills, teardownObsidianPolyfills } from './setup-polyfills';
 import { MOCK_DATE_STRING } from './obsidian-mock';
+import { createRequestMock } from './request-mock';
 
 
 class TestableOneNoteImporter extends OneNoteImporter {
@@ -72,6 +73,7 @@ const buildMultipartContent = (html: string): string => {
 
 describe('OneNoteImporter integration', () => {
 	let tmpRoot: string;
+	const requestMock = createRequestMock();
 
 	beforeAll(() => {
 		setupObsidianPolyfills();
@@ -83,11 +85,13 @@ describe('OneNoteImporter integration', () => {
 
 	beforeEach(() => {
 		Notice.messages = [];
+		requestMock.start();
 	});
 
 	afterEach(async () => {
 		vi.restoreAllMocks();
-		vi.unstubAllGlobals();
+		requestMock.stop();
+		requestMock.clearHandlers();
 		if (tmpRoot) {
 			await fsp.rm(tmpRoot, { recursive: true, force: true });
 		}
@@ -124,8 +128,8 @@ describe('OneNoteImporter integration', () => {
 			],
 		};
 
-		const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
-			const target = typeof url === 'string' ? url : url.toString();
+		requestMock.addHandler(async (url: string | URL) => {
+			const target = url.toString();
 			if (target.includes('/sections/section-1/pages')) {
 				return new Response(JSON.stringify(pagesResponse), { status: 200 });
 			}
@@ -134,7 +138,6 @@ describe('OneNoteImporter integration', () => {
 			}
 			return new Response('not found', { status: 404 });
 		});
-		vi.stubGlobal('fetch', fetchMock as any);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
@@ -143,7 +146,6 @@ describe('OneNoteImporter integration', () => {
 		const md = await fsp.readFile(notePath, 'utf8');
 		expect(md).toContain('Hello OneNote');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('My Note');
-		expect(fetchMock).toHaveBeenCalled();
 	});
 
 	it('downloads attachments and rewrites embeds', async () => {
@@ -183,8 +185,8 @@ describe('OneNoteImporter integration', () => {
 		};
 
 		const binaryBuffer = Buffer.from('file');
-		const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
-			const target = typeof url === 'string' ? url : url.toString();
+		requestMock.addHandler(async (url: string | URL) => {
+			const target = url.toString();
 			if (target.includes('/sections/section-2/pages')) {
 				return new Response(JSON.stringify(pagesResponse), { status: 200 });
 			}
@@ -196,7 +198,6 @@ describe('OneNoteImporter integration', () => {
 			}
 			return new Response('not found', { status: 404 });
 		});
-		vi.stubGlobal('fetch', fetchMock as any);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
@@ -269,8 +270,8 @@ describe('OneNoteImporter integration', () => {
 			],
 		};
 
-		const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
-			const target = typeof url === 'string' ? url : url.toString();
+		requestMock.addHandler(async (url: string | URL) => {
+			const target = url.toString();
 			if (target.includes('/sections/section-a/pages')) {
 				return new Response(JSON.stringify(pagesResponseA), { status: 200 });
 			}
@@ -285,7 +286,6 @@ describe('OneNoteImporter integration', () => {
 			}
 			return new Response('not found', { status: 404 });
 		});
-		vi.stubGlobal('fetch', fetchMock as any);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
@@ -362,8 +362,8 @@ describe('OneNoteImporter integration', () => {
 			],
 		};
 
-		const fetchMock = vi.fn(async (url: RequestInfo | URL) => {
-			const target = typeof url === 'string' ? url : url.toString();
+		requestMock.addHandler(async (url: string | URL) => {
+			const target = url.toString();
 			if (target.includes('/sections/section-sg1/pages')) {
 				return new Response(JSON.stringify(pagesResponseSG1), { status: 200 });
 			}
@@ -378,7 +378,6 @@ describe('OneNoteImporter integration', () => {
 			}
 			return new Response('not found', { status: 404 });
 		});
-		vi.stubGlobal('fetch', fetchMock as any);
 
 		const progress = createProgress();
 		await importer.import(progress as any);
