@@ -56,34 +56,6 @@ const createProgress = () => {
 	};
 };
 
-const debugTestFailure = async (root: string, expectedPaths: string[], progress: any) => {
-	const listDir = async (dir: string, prefix = '', depth = 0): Promise<string> => {
-		if (depth > 10) return `${prefix}[max depth reached]\n`;
-		try {
-			const items = await fsp.readdir(dir, { withFileTypes: true });
-			let result = '';
-			for (const item of items) {
-				result += `${prefix}${item.isDirectory() ? '[DIR] ' : '[FILE]'} ${item.name}\n`;
-				if (item.isDirectory()) {
-					result += await listDir(path.join(dir, item.name), prefix + '  ', depth + 1);
-				}
-			}
-			return result;
-		} catch (e) {
-			return `${prefix}Error reading directory: ${e}\n`;
-		}
-	};
-
-	const dirTree = await listDir(root);
-	console.log('Directory tree:');
-	console.log(dirTree);
-	console.log('Expected paths:');
-	expectedPaths.forEach((p, i) => console.log(`  [${i}]:`, p));
-	console.log('Progress reports:');
-	console.log('  reportNoteSuccess calls:', progress.reportNoteSuccess.mock.calls);
-	console.log('  reportFailed calls:', progress.reportFailed.mock.calls);
-};
-
 const buildMultipartContent = (html: string): string => {
 	const boundary = '--batch_12345';
 	return [
@@ -171,12 +143,6 @@ describe('OneNoteImporter integration', () => {
 		await importer.import(progress as any);
 
 		const notePath = path.join(root, 'OneNote', 'Test Notebook', 'Section A', 'My Note.md');
-		
-		// If file doesn't exist, print diagnostics
-		if (!fs.existsSync(notePath)) {
-			await debugTestFailure(root, [notePath], progress);
-		}
-		
 		const md = await fsp.readFile(notePath, 'utf8');
 		expect(md).toContain('Hello OneNote');
 		expect(progress.reportNoteSuccess).toHaveBeenCalledWith('My Note');
@@ -239,11 +205,6 @@ describe('OneNoteImporter integration', () => {
 		const notePath = path.join(root, 'OneNote', 'Work Notebook', 'Attachments', 'Page With Attachments.md');
 		const attachmentPath = path.join(root, 'OneNote', 'report.pdf');
 		const imagePath = path.join(root, 'OneNote', `Exported image ${MOCK_DATE_STRING}-0.png`);
-
-		// If files don't exist, print diagnostics
-		if (!fs.existsSync(notePath) || !fs.existsSync(attachmentPath) || !fs.existsSync(imagePath)) {
-			await debugTestFailure(root, [notePath, attachmentPath, imagePath], progress);
-		}
 
 		const md = await fsp.readFile(notePath, 'utf8');
 		expect(fs.existsSync(attachmentPath)).toBe(true);
@@ -424,12 +385,6 @@ describe('OneNoteImporter integration', () => {
 		// Verify pages from section group
 		const notePathSG1 = path.join(root, 'OneNote', 'Notebook With Groups', 'My Section Group', 'Grouped Section 1', 'Page SG1.md');
 		const notePathSG2 = path.join(root, 'OneNote', 'Notebook With Groups', 'My Section Group', 'Grouped Section 2', 'Page SG2.md');
-		
-		// If files don't exist, print diagnostics
-		if (!fs.existsSync(notePathSG1) || !fs.existsSync(notePathSG2)) {
-			await debugTestFailure(root, [notePathSG1, notePathSG2], progress);
-		}
-		
 		const mdSG1 = await fsp.readFile(notePathSG1, 'utf8');
 		const mdSG2 = await fsp.readFile(notePathSG2, 'utf8');
 		expect(mdSG1).toContain('Content from grouped section 1');

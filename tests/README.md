@@ -65,32 +65,6 @@ npx vitest tests/onenote-importer.test.ts
 npx vitest --coverage
 ```
 
-## Understanding Test Output
-
-The tests use Vitest and include automatic diagnostic output when failures occur:
-
-```
-✓ tests/onenote-importer.test.ts > OneNoteImporter integration > imports a simple page
-✗ tests/onenote-importer.test.ts > OneNoteImporter integration > downloads attachments
-  
-  Directory tree:
-  [DIR] OneNote
-    [DIR] Work Notebook
-      [DIR] Attachments
-        [FILE] Page With Attachments.md
-  Expected paths:
-    [0]: /tmp/.../OneNote/Work Notebook/Attachments/Page.md
-    [1]: /tmp/.../OneNote/report.pdf
-  Progress reports:
-    reportNoteSuccess calls: [['Page With Attachments']]
-    reportFailed calls: []
-```
-
-This diagnostic output helps identify:
-- What files were actually created
-- What files were expected but missing
-- Whether the import process succeeded or failed
-
 ## Troubleshooting
 
 ### Tests failing with "ENOENT: no such file or directory"
@@ -133,22 +107,10 @@ If all tests are failing with file not found errors, try the following steps:
 
 ### Common Issues
 
-- **Node.js v24+**: The project uses `@types/node` 16.6.2 which may not be fully compatible with Node.js v24. Consider using Node.js v20 LTS.
+- **Node.js v24+**: The project uses `@types/node` 16.6.2 which is not compatible with Node.js v24. Use Node.js v20 LTS instead.
 - **macOS/Linux**: If you get permission denied errors, check that the temp directory is writable
-- **Windows**: Path separators might cause issues - ensure you're using the latest version of Node.js
+- **Windows**: Path separators might cause issues - ensure you're using a supported Node.js version
 - **CI vs Local**: The tests use the system's temp directory, which may behave differently locally vs in CI
-
-### Debug Mode
-
-The tests now include automatic diagnostic output when files are missing. When a test fails, you'll see:
-- Complete directory tree of what was actually created
-- Expected file paths that were not found
-- Progress reports from the importer (successes and failures)
-
-This information will help identify whether the issue is:
-- Files being created in the wrong location
-- Files not being created at all
-- Import process failing silently
 
 If you continue to have issues, please provide:
 1. Your Node.js version (`node --version`)
